@@ -1,0 +1,15 @@
+{
+  "name": "rewin0087-qa",
+  "owner": {"name": "rewin0087", "url": "https://github.com/rewin0087"},
+  "description": "Claude Code plugins by rewin0087",
+  "plugins": [
+    {
+      "name": "qa",
+      "source": "./",
+      "description": "Headless E2E and functional QA of your branch against its ticket, with a copy-for-the-ticket results report.",
+      "version": "1.0.0",
+      "category": "development",
+      "keywords": ["qa", "e2e", "testing", "acceptance-criteria", "playwright"]
+    }
+  ]
+}

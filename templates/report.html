@@ -1,0 +1,519 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>__TITLE__</title>
+<style>
+:root{
+  --bg:#f6f7f9;--panel:#fff;--panel2:#f1f3f6;--text:#1b1f24;--muted:#5d6672;--line:#dfe3e8;--accent:#3b5bdb;
+  --pass:#1f883d;--pass-bg:#e6f4ea;--fail:#cf222e;--fail-bg:#fde8ea;--block:#9a6700;--block-bg:#fff4d6;--skip:#6e7781;--skip-bg:#eef0f2;
+  --info:#0969da;--info-bg:#e3effd;--code-bg:#f6f8fa;--hl:#fff3b0;--shadow:0 1px 2px rgba(0,0,0,.06),0 2px 8px rgba(0,0,0,.04);
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0f1216;--panel:#171b21;--panel2:#1e232b;--text:#e6e9ed;--muted:#9aa4b0;--line:#2b323c;--accent:#8ea2ff;
+  --pass:#4ac26b;--pass-bg:#12301c;--fail:#ff7b72;--fail-bg:#3a1618;--block:#d4a72c;--block-bg:#342a0c;--skip:#9aa4b0;--skip-bg:#252b33;
+  --info:#58a6ff;--info-bg:#10243d;--code-bg:#11151a;--hl:#3d3510;--shadow:none}}
+:root[data-theme="dark"]{
+  --bg:#0f1216;--panel:#171b21;--panel2:#1e232b;--text:#e6e9ed;--muted:#9aa4b0;--line:#2b323c;--accent:#8ea2ff;
+  --pass:#4ac26b;--pass-bg:#12301c;--fail:#ff7b72;--fail-bg:#3a1618;--block:#d4a72c;--block-bg:#342a0c;--skip:#9aa4b0;--skip-bg:#252b33;
+  --info:#58a6ff;--info-bg:#10243d;--code-bg:#11151a;--hl:#3d3510;--shadow:none}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+a{color:var(--accent)}
+code,pre,.mono{font-family:var(--mono);font-size:12.5px}
+code{background:var(--code-bg);border:1px solid var(--line);border-radius:4px;padding:0 4px}
+pre{background:var(--code-bg);border:1px solid var(--line);border-radius:8px;padding:10px 12px;overflow:auto;margin:6px 0;white-space:pre-wrap;word-break:break-word}
+header.top{background:var(--panel);border-bottom:1px solid var(--line);padding:18px 16px 0}
+.wrap{max-width:1240px;margin:0 auto}
+h1{font-size:21px;margin:0 0 6px}
+h2{font-size:17px;margin:0 0 12px}
+h3{font-size:14px;margin:14px 0 6px}
+.ctx{color:var(--muted);font-size:13px;margin:4px 0 12px}
+.ctx code{font-size:12px}
+nav.tabs{display:flex;gap:2px;overflow-x:auto;margin-top:8px}
+nav.tabs a{padding:9px 12px;text-decoration:none;color:var(--muted);border-bottom:2px solid transparent;white-space:nowrap;font-weight:500}
+nav.tabs a.on{color:var(--text);border-color:var(--accent)}
+main{padding:18px 16px 60px}
+section{display:none}
+section.on{display:block}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:14px;box-shadow:var(--shadow)}
+.grid{display:grid;gap:12px}
+.tiles{grid-template-columns:repeat(auto-fit,minmax(130px,1fr))}
+.tile{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.tile b{display:block;font-size:24px;line-height:1.2}
+.tile span{color:var(--muted);font-size:12px}
+.pill{display:inline-flex;align-items:center;gap:4px;border-radius:999px;padding:1px 9px;font-size:12px;font-weight:600;white-space:nowrap;border:1px solid transparent}
+.r-passed,.v-passed,.v-passed_with_caveats,.q-met{background:var(--pass-bg);color:var(--pass)}
+.r-failed,.v-failed,.q-not_met{background:var(--fail-bg);color:var(--fail)}
+.r-blocked,.v-blocked,.q-partial{background:var(--block-bg);color:var(--block)}
+.r-not_run,.q-untested{background:var(--skip-bg);color:var(--skip)}
+.s-critical{background:var(--fail-bg);color:var(--fail)}.s-major{background:var(--block-bg);color:var(--block)}
+.s-minor,.s-info{background:var(--info-bg);color:var(--info)}
+.tag{display:inline-block;border:1px solid var(--line);border-radius:6px;padding:0 6px;font-size:12px;color:var(--muted);background:var(--panel2);white-space:nowrap}
+.verdict{font-size:15px;padding:4px 12px}
+.bar{display:flex;height:10px;border-radius:6px;overflow:hidden;background:var(--panel2);margin:10px 0 2px}
+.bar i{display:block;height:100%}
+.muted{color:var(--muted)}
+.md p{margin:6px 0}.md ul{margin:6px 0;padding-left:20px}
+table{border-collapse:collapse;width:100%}
+th,td{text-align:left;vertical-align:top;padding:8px 10px;border-bottom:1px solid var(--line)}
+th{font-size:12px;color:var(--muted);font-weight:600;background:var(--panel2);position:sticky;top:0}
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
+tr.row{cursor:pointer}
+tr.row:hover td{background:var(--panel2)}
+tr.row.open td{background:var(--panel2)}
+tr.detail>td{background:var(--bg);padding:0}
+.det{padding:14px 16px;border-left:3px solid var(--accent)}
+.filters{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:10px}
+.chip{border:1px solid var(--line);background:var(--panel);color:var(--text);border-radius:999px;padding:3px 10px;font-size:12px;cursor:pointer}
+.chip.on{background:var(--accent);border-color:var(--accent);color:#fff}
+input.search{border:1px solid var(--line);background:var(--panel);color:var(--text);border-radius:8px;padding:6px 10px;min-width:200px;flex:1;max-width:320px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:760px){.two{grid-template-columns:1fr}}
+.box{border:1px solid var(--line);border-radius:8px;padding:10px 12px;background:var(--panel)}
+.box h4{margin:0 0 6px;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.chain{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.chain .node{border:1px solid var(--line);border-radius:8px;padding:4px 8px;background:var(--panel);cursor:pointer;font-family:var(--mono);font-size:12px}
+.chain .node:hover{border-color:var(--accent)}
+.chain .node small{display:block;color:var(--muted);font-family:inherit;font-size:10.5px}
+.chain .arr{color:var(--muted)}
+.role{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--accent)}
+.anchor{font-family:var(--mono);font-size:12px;cursor:pointer;color:var(--accent);text-decoration:underline dotted}
+.ok{color:var(--pass);font-weight:700}.bad{color:var(--fail);font-weight:700}.warn{color:var(--block);font-weight:700}
+.steps td{font-size:13px}
+.shots{display:flex;flex-wrap:wrap;gap:10px}
+.shots a img{max-width:260px;max-height:180px;border:1px solid var(--line);border-radius:6px;display:block}
+.ev{font-family:var(--mono);font-size:12px;white-space:pre-wrap;word-break:break-word;padding:1px 0}
+.ev.sql{color:var(--info)}.ev.http{color:var(--block)}.ev.exception{color:var(--fail)}.ev.call{color:var(--muted)}
+.copybar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:8px}
+button.btn{border:1px solid var(--line);background:var(--panel);color:var(--text);border-radius:8px;padding:6px 12px;cursor:pointer;font-weight:600;font-size:13px}
+button.btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+button.btn:focus-visible,.chip:focus-visible,nav.tabs a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.copied{color:var(--pass);font-weight:600;font-size:13px}
+#preview table{font-size:13px}#preview td,#preview th{border:1px solid var(--line)}
+.drawer{position:fixed;top:0;right:0;height:100%;width:min(760px,100%);background:var(--panel);border-left:1px solid var(--line);
+  box-shadow:-6px 0 24px rgba(0,0,0,.15);transform:translateX(100%);transition:transform .18s,visibility .18s;z-index:20;display:flex;flex-direction:column;visibility:hidden}
+.drawer.on{transform:none;visibility:visible}
+.drawer header{padding:12px 16px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:8px}
+.drawer .code{overflow:auto;flex:1;font-family:var(--mono);font-size:12.5px;background:var(--code-bg)}
+.code .ln{display:flex;white-space:pre}
+.code .ln b{display:inline-block;min-width:52px;text-align:right;padding-right:12px;color:var(--muted);font-weight:400;user-select:none}
+.code .ln.hl{background:var(--hl)}
+.code .ln.chg b{color:var(--pass)}
+.themebtn{position:absolute;top:14px;right:16px}
+header.top{position:relative}
+@media print{nav.tabs,.themebtn,.filters,.copybar,.drawer{display:none!important}section{display:block!important}tr.detail{display:none}}
+</style>
+</head>
+<body>
+<header class="top"><div class="wrap">
+  <button class="btn themebtn" id="theme" title="Toggle light/dark" aria-label="Toggle light or dark theme">◐</button>
+  <h1 id="title"></h1>
+  <div id="verdictline"></div>
+  <div class="ctx" id="ctx"></div>
+  <nav class="tabs" id="tabs" aria-label="Report sections"></nav>
+</div></header>
+<main><div class="wrap" id="main"></div></main>
+<aside class="drawer" id="drawer" aria-hidden="true">
+  <header><div><b id="dtitle"></b><div class="muted mono" id="dsub"></div></div><button class="btn" id="dclose">Close</button></header>
+  <div class="code" id="dcode"></div>
+</aside>
+<script id="qa-data" type="application/json">__QA_DATA__</script>
+<script>
+(function(){
+"use strict";
+var D = JSON.parse(document.getElementById("qa-data").textContent);
+var Q = D.qa, M = D.meta || {}, S = Q.summary || {}, SC = Q.scenarios || [];
+var RES = {passed:"✅ Passed", failed:"❌ Failed", blocked:"⛔ Blocked", not_run:"⏭ Not run"};
+var VER = {passed:"✅ Passed", passed_with_caveats:"✅ Passed with caveats", failed:"❌ Failed", blocked:"⛔ Blocked"};
+var EXP = {yes:"Yes", no:"No", partial:"Partly", "n/a":"N/A"};
+var TYPES = {success:"Success",valid:"Valid",invalid:"Invalid",validation:"Validation",failure:"Failure",edge_case:"Edge case",boundary:"Boundary",
+  security:"Security",permission:"Permission",concurrency:"Concurrency",integration:"Integration",regression:"Regression",ui:"UI",performance:"Performance"};
+var LEVELS = {e2e_ui:"E2E (browser → API → DB)", e2e_api:"E2E (API request → DB)", functional:"Functional", unit:"Unit", data:"Data / migration", manual:"Manual steps"};
+var REQ = {met:"✅ Met", not_met:"❌ Not met", partial:"◐ Partly met", untested:"⏭ Not tested"};
+
+function esc(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
+function inline(s){
+  var out = esc(s);
+  out = out.replace(/`([^`]+)`/g, "<code>$1</code>");
+  out = out.replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>");
+  out = out.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+  return out;
+}
+function md(s){
+  if(!s) return "";
+  var lines = String(s).split("\n"), html = "", list = false, para = [];
+  function flush(){ if(para.length){ html += "<p>"+inline(para.join(" "))+"</p>"; para = []; } }
+  lines.forEach(function(l){
+    var m = l.match(/^\s*(?:[-*]|\d+[.)])\s+(.*)$/);
+    if(m){ flush(); if(!list){ html += "<ul>"; list = true; } html += "<li>"+inline(m[1])+"</li>"; return; }
+    if(list){ html += "</ul>"; list = false; }
+    if(!l.trim()){ flush(); return; }
+    para.push(l.trim());
+  });
+  flush(); if(list) html += "</ul>";
+  return '<div class="md">'+html+"</div>";
+}
+function asExpected(sc){ if(EXP[sc.as_expected]) return sc.as_expected; return sc.result==="passed"?"yes":sc.result==="failed"?"no":"n/a"; }
+function pill(cls, text){ return '<span class="pill '+cls+'">'+esc(text)+"</span>"; }
+function anchor(file, line, label){
+  if(!file) return "";
+  return '<span class="anchor" data-file="'+esc(file)+'" data-line="'+(line||"")+'">'+esc(label || (file+(line?":"+line:"")))+"</span>";
+}
+function json(v){ return "<pre>"+esc(typeof v==="string"?v:JSON.stringify(v,null,2))+"</pre>"; }
+function el(id){ return document.getElementById(id); }
+function reqStatus(r){
+  if(REQ[r.status]) return r.status;
+  var res = SC.filter(function(s){return (s.requirements||[]).indexOf(r.id)>=0;}).map(function(s){return s.result;});
+  var ran = res.filter(function(x){return x==="passed"||x==="failed";});
+  if(!ran.length) return "untested";
+  if(ran.every(function(x){return x==="passed";})) return ran.length===res.length?"met":"partial";
+  return ran.every(function(x){return x==="failed";})?"not_met":"partial";
+}
+
+/* ---------- header ---------- */
+el("title").textContent = Q.title || "QA report";
+document.title = Q.title || "QA report";
+el("verdictline").innerHTML = pill("verdict v-"+esc(S.verdict), VER[S.verdict]||S.verdict) + ' <span style="font-weight:600;margin-left:6px">'+inline(S.headline||"")+"</span>";
+var t = Q.ticket || {}, env = Q.environment || {};
+el("ctx").innerHTML = [
+  "Branch <code>"+esc(M.branch)+"</code> @ <code>"+esc(M.sha)+"</code>" + (M.base?" vs <code>"+esc(M.base)+"</code>":""),
+  t.id ? "Ticket " + (t.url?'<a href="'+esc(t.url)+'" target="_blank" rel="noopener">'+esc(t.id)+"</a>":esc(t.id)) : "",
+  env.env ? "Env: "+esc(env.env)+(env.base_url?" ("+esc(env.base_url)+")":"") : "",
+  M.created ? "Run "+esc(M.created) : ""
+].filter(Boolean).join(" · ");
+
+/* ---------- sections ---------- */
+var counts = {passed:0, failed:0, blocked:0, not_run:0};
+SC.forEach(function(s){ if(counts[s.result]!=null) counts[s.result]++; });
+var sections = [
+  ["overview","Overview"], ["results","Test results ("+SC.length+")"], ["requirements","Requirements"],
+  ["impact","Impact & approach"], ["findings","Findings"+((Q.findings||[]).length?" ("+Q.findings.length+")":"")],
+  ["ticket","Copy for the ticket"], ["env","Environment"]
+];
+el("tabs").innerHTML = sections.map(function(s){return '<a href="#'+s[0]+'" data-s="'+s[0]+'">'+esc(s[1])+"</a>";}).join("");
+el("main").innerHTML = sections.map(function(s){return '<section id="s-'+s[0]+'"></section>';}).join("");
+function show(name){
+  if(!el("s-"+name)) name = "overview";
+  sections.forEach(function(s){ el("s-"+s[0]).classList.toggle("on", s[0]===name); });
+  Array.prototype.forEach.call(document.querySelectorAll("nav.tabs a"), function(a){ a.classList.toggle("on", a.dataset.s===name); });
+}
+window.addEventListener("hashchange", function(){ show(location.hash.slice(1)); });
+
+/* ---------- overview ---------- */
+(function(){
+  var total = SC.length || 1, reqs = Q.requirements || [];
+  var met = reqs.filter(function(r){return reqStatus(r)==="met";}).length;
+  var h = '<div class="grid tiles" style="margin-bottom:14px">' +
+    '<div class="tile"><b>'+SC.length+'</b><span>scenarios</span></div>' +
+    '<div class="tile"><b class="ok">'+counts.passed+'</b><span>passed</span></div>' +
+    '<div class="tile"><b class="bad">'+counts.failed+'</b><span>failed</span></div>' +
+    '<div class="tile"><b class="warn">'+(counts.blocked+counts.not_run)+'</b><span>blocked / not run</span></div>' +
+    (reqs.length?'<div class="tile"><b>'+met+"/"+reqs.length+'</b><span>requirements met</span></div>':"") +
+    '<div class="tile"><b>'+(Q.findings||[]).length+'</b><span>findings</span></div></div>';
+  h += '<div class="card"><div class="bar" role="img" aria-label="'+counts.passed+' passed, '+counts.failed+' failed, '+counts.blocked+' blocked, '+counts.not_run+' not run">' +
+    ["passed","failed","blocked","not_run"].map(function(k){
+      var c = {passed:"var(--pass)",failed:"var(--fail)",blocked:"var(--block)",not_run:"var(--skip)"}[k];
+      return counts[k]?'<i style="width:'+(100*counts[k]/total)+'%;background:'+c+'" title="'+counts[k]+" "+k.replace("_"," ")+'"></i>':"";
+    }).join("") + "</div>";
+  h += '<div class="muted" style="font-size:12px">'+["passed","failed","blocked","not_run"].filter(function(k){return counts[k];}).map(function(k){return counts[k]+" "+k.replace("_"," ");}).join(" · ")+"</div>";
+  if(S.overview) h += "<h3>Overview</h3>"+md(S.overview);
+  if(S.conclusion) h += "<h3>Conclusion</h3>"+md(S.conclusion);
+  if(S.how_tested) h += "<h3>How it was tested</h3>"+md(S.how_tested);
+  h += "</div>";
+  var failed = SC.filter(function(s){return s.result==="failed";});
+  if(failed.length){
+    h += '<div class="card"><h2>Failed scenarios and how to fix them</h2>' + failed.map(function(s){
+      var f = s.failure||{}, fx = s.fix||{};
+      return '<div class="box" style="margin-bottom:10px"><b>'+esc(s.id)+" "+esc(s.title)+"</b> "+pill("r-failed","❌ Failed") +
+        "<div>"+md(f.reason||s.remarks)+"</div>" + (f.file?"<div>Where: "+anchor(f.file,f.line,(f.symbol?f.symbol+" · ":"")+f.file+(f.line?":"+f.line:""))+"</div>":"") +
+        (fx.description?"<h3>Suggested fix</h3>"+md(fx.description):"") + (fx.code?json(fx.code):"") +
+        (fx.file?"<div>"+anchor(fx.file,fx.line)+"</div>":"") + "</div>";
+    }).join("") + "</div>";
+  }
+  var lists = [["Caveats", Q.caveats], ["Remarks", Q.remarks], ["Not covered", Q.not_covered]];
+  lists.forEach(function(l){ if(l[1] && l[1].length) h += '<div class="card"><h2>'+l[0]+"</h2><ul>"+l[1].map(function(x){return "<li>"+inline(x)+"</li>";}).join("")+"</ul></div>"; });
+  el("s-overview").innerHTML = h;
+})();
+
+/* ---------- results ---------- */
+var filt = {result:null, type:null, q:""};
+function resultsSection(){
+  var types = {}; SC.forEach(function(s){ types[s.type]=1; });
+  var h = '<div class="filters" role="toolbar" aria-label="Filter scenarios"><span class="muted">Result:</span>' +
+    ["passed","failed","blocked","not_run"].filter(function(k){return counts[k];}).map(function(k){
+      return '<button class="chip'+(filt.result===k?" on":"")+'" data-f="result" data-v="'+k+'">'+esc(RES[k])+" ("+counts[k]+")</button>";}).join("") +
+    '<span class="muted" style="margin-left:8px">Type:</span>' +
+    Object.keys(types).map(function(k){return '<button class="chip'+(filt.type===k?" on":"")+'" data-f="type" data-v="'+esc(k)+'">'+esc(TYPES[k]||k)+"</button>";}).join("") +
+    '<input class="search" id="q" placeholder="Search scenarios, classes, remarks…" aria-label="Search scenarios" value="'+esc(filt.q)+'"></div>';
+  h += '<div class="tbl"><table><thead><tr><th>#</th><th>Test scenario</th><th>Type</th><th>Level</th><th>Result</th><th>Expected?</th><th>Remarks</th></tr></thead><tbody>';
+  SC.forEach(function(s, i){
+    var hay = JSON.stringify(s).toLowerCase();
+    if((filt.result && s.result!==filt.result) || (filt.type && s.type!==filt.type) || (filt.q && hay.indexOf(filt.q.toLowerCase())<0)) return;
+    var ae = asExpected(s);
+    h += '<tr class="row" data-i="'+i+'" tabindex="0" aria-expanded="false"><td class="mono">'+esc(s.id)+"</td><td><b>"+esc(s.title)+"</b>" +
+      ((s.requirements||[]).length?'<div class="muted" style="font-size:12px">'+esc(s.requirements.join(", "))+"</div>":"") +
+      "</td><td>"+esc(TYPES[s.type]||s.type)+'</td><td><span class="tag">'+esc(LEVELS[s.level]||s.level||"")+"</span></td><td>"+pill("r-"+s.result, RES[s.result]||s.result)+"</td>" +
+      '<td><span class="'+(ae==="yes"?"ok":ae==="no"?"bad":"warn")+'">'+esc(EXP[ae])+"</span></td><td>"+inline(s.remarks||"")+"</td></tr>";
+    h += '<tr class="detail" id="d-'+i+'" hidden><td colspan="7"><div class="det"></div></td></tr>';
+  });
+  h += "</tbody></table></div>";
+  el("s-results").innerHTML = h;
+  el("q").addEventListener("input", function(e){ filt.q = e.target.value; var pos = e.target.selectionStart; resultsSection(); var q = el("q"); q.focus(); q.setSelectionRange(pos,pos); });
+}
+function runFor(ref){
+  if(!ref) return null;
+  var parts = String(ref).split("#"), r = D.runs[parts[0]];
+  if(!r) return null;
+  if(parts[1] && r.results) return r.results.filter(function(x){return x.id===parts[1];})[0] || null;
+  return r;
+}
+function detail(s){
+  var h = "";
+  if(s.description) h += md(s.description);
+  h += '<div class="two" style="margin:10px 0">' +
+    '<div class="box"><h4>Expected</h4>'+md(s.expected||"—")+"</div>" +
+    '<div class="box"><h4>Actual</h4>'+md(s.actual||"—")+"</div></div>";
+  if((s.preconditions||[]).length) h += "<h3>Preconditions</h3><ul>"+s.preconditions.map(function(p){return "<li>"+inline(p)+"</li>";}).join("")+"</ul>";
+  if(s.input) h += "<h3>Input</h3>"+json(s.input);
+  if((s.steps||[]).length){
+    h += '<h3>Steps</h3><div class="tbl"><table class="steps"><thead><tr><th>#</th><th>Action</th><th>Expected</th><th>Actual</th><th></th><th>Code</th></tr></thead><tbody>' +
+      s.steps.map(function(st, n){
+        var r = st.result, mark = r==="passed"?'<span class="ok">✓</span>':r==="failed"?'<span class="bad">✗</span>':r==="blocked"?'<span class="warn">⛔</span>':"";
+        return "<tr><td>"+(n+1)+"</td><td>"+inline(st.action)+"</td><td>"+inline(st.expected||"")+"</td><td>"+inline(st.actual||"")+"</td><td>"+mark+"</td><td>"+
+          anchor(st.file, st.line, st.symbol || (st.file?st.file.split("/").pop()+(st.line?":"+st.line:""):""))+"</td></tr>";
+      }).join("") + "</tbody></table></div>";
+  }
+  if((s.code_path||[]).length){
+    h += '<h3>Code path: what ran to achieve this</h3><div class="chain">' + s.code_path.map(function(c, n){
+      return (n?'<span class="arr">→</span>':"")+'<span class="node anchor-node" data-file="'+esc(c.file||"")+'" data-line="'+(c.line||"")+'" title="'+esc(c.note||"")+'">' +
+        '<span class="role">'+esc(c.role||"")+"</span><br>"+esc(c.symbol||c.file)+"<small>"+esc((c.file||"")+(c.line?":"+c.line:""))+"</small></span>";
+    }).join("") + "</div>";
+  }
+  var se = s.side_effects || {};
+  var seKeys = ["db","jobs","emails","external","events"].filter(function(k){return (se[k]||[]).length;});
+  if(seKeys.length){
+    h += '<h3>Side effects</h3><div class="two">' + seKeys.map(function(k){
+      return '<div class="box"><h4>'+{db:"Database",jobs:"Background jobs",emails:"Emails",external:"External calls",events:"Events / callbacks"}[k]+"</h4><ul>"+
+        se[k].map(function(x){return "<li>"+inline(typeof x==="string"?x:JSON.stringify(x))+"</li>";}).join("")+"</ul></div>";
+    }).join("") + "</div>";
+  }
+  if(s.failure && s.failure.reason) h += '<h3>Why it failed</h3>'+md(s.failure.reason)+(s.failure.file?"<div>"+anchor(s.failure.file,s.failure.line,(s.failure.symbol?s.failure.symbol+" · ":"")+s.failure.file+(s.failure.line?":"+s.failure.line:""))+"</div>":"");
+  if(s.fix && (s.fix.description||s.fix.code)) h += "<h3>Suggested fix</h3>"+md(s.fix.description)+(s.fix.code?json(s.fix.code):"")+(s.fix.file?"<div>"+anchor(s.fix.file,s.fix.line)+"</div>":"");
+  // evidence
+  var ev = [];
+  if(s.evidence) ev.push('<span class="tag">evidence: '+esc(s.evidence)+"</span>");
+  if(s.environment) ev.push('<span class="tag">env: '+esc(s.environment)+"</span>");
+  if(s.test_file) ev.push('<span class="tag">test: '+esc(s.test_file)+"</span>");
+  if(ev.length) h += '<h3>Evidence</h3><div style="display:flex;gap:6px;flex-wrap:wrap">'+ev.join("")+"</div>";
+  if(s.command) h += json("$ "+s.command);
+  var run = runFor(s.run) || (s.log?null:null);
+  if(run && run.cmd){
+    h += '<div class="muted" style="font-size:12px">'+esc(run.status)+", exit "+esc(run.exit_code)+", "+esc(run.duration_ms)+" ms · "+(run.summary||[]).map(function(x){return esc(x.line);}).join(" · ")+"</div>";
+    if((run.cases||[]).length) h += '<div class="tbl" style="margin:6px 0"><table><tbody>'+run.cases.slice(0,60).map(function(c){
+      return "<tr><td>"+pill("r-"+(c.status==="passed"?"passed":c.status==="skipped"?"not_run":"failed"), c.status)+"</td><td>"+esc((c.classname?c.classname+" › ":"")+c.name)+(c.message?'<pre>'+esc(c.message)+"</pre>":"")+"</td></tr>";}).join("")+"</tbody></table></div>";
+    h += '<details><summary>Output (last lines)</summary><pre>'+esc((run.tail||"").split("\n").slice(-80).join("\n"))+"</pre></details>";
+  }
+  var http = runFor(s.http);
+  if(http && http.request){
+    h += "<h3>HTTP</h3>" + '<div class="two"><div class="box"><h4>Request</h4>'+json(http.request)+'</div><div class="box"><h4>Response</h4>'+json(http.response||http.error)+"</div></div>" +
+      (http.assertions||[]).map(function(a){return '<div>'+(a.ok?'<span class="ok">✓</span>':'<span class="bad">✗</span>')+" "+esc(a.check)+": expected "+esc(JSON.stringify(a.expected))+", got "+esc(JSON.stringify(a.actual))+"</div>";}).join("");
+  }
+  var ui = runFor(s.ui);
+  if(ui && ui.steps){
+    h += "<h3>Browser run</h3>" + ui.steps.map(function(x){return "<div>"+(x.ok?'<span class="ok">✓</span>':'<span class="bad">✗</span>')+" "+esc(x.step)+(x.detail?' <span class="muted">→ '+esc(x.detail)+"</span>":"")+"</div>";}).join("");
+    if((ui.requests||[]).length) h += '<h4 class="muted" style="margin:8px 0 2px">Requests the page sent</h4>'+ui.requests.map(function(q){return '<div class="ev http">'+esc(q.method+" "+q.url+" → "+(q.status||q.failed))+"</div>";}).join("");
+    (ui.console_errors||[]).concat(ui.page_errors||[]).forEach(function(e){ h += '<div class="ev exception">console: '+esc(e)+"</div>"; });
+  }
+  var shots = (s.screenshots||[]).concat(ui && ui.screenshots ? ui.screenshots : []);
+  shots = shots.filter(function(x, i){ return shots.indexOf(x)===i; });
+  if(shots.length) h += '<h3>Screenshots</h3><div class="shots">'+shots.map(function(p){return '<a href="'+esc(p)+'" target="_blank"><img src="'+esc(p)+'" alt="Screenshot '+esc(p)+'" loading="lazy"></a>';}).join("")+"</div>";
+  var tr = D.traces && D.traces[s.id];
+  if(tr){
+    h += '<details><summary>Recorded trace ('+tr.events.length+" of "+tr.total_events+" events"+(tr.db?", "+tr.db.writes.length+" DB writes":"")+")</summary><div style=\"max-height:420px;overflow:auto;padding:6px 0\">" +
+      tr.events.map(function(e){
+        var ind = new Array(Math.max(0,(e.depth||1)-1)+1).join("  "), loc = e.file?" ["+e.file+":"+e.line+"]":"", txt = "";
+        if(e.ev==="call") txt = "→ "+e.fn+"("+Object.keys(e.args||{}).map(function(k){return k+"="+e.args[k];}).join(", ")+")"+loc;
+        else if(e.ev==="return") txt = "← "+e.fn+" returned "+e.value;
+        else if(e.ev==="sql") txt = "SQL "+e.sql+(e.params?"  "+JSON.stringify(e.params):"")+loc;
+        else if(e.ev==="http") txt = "HTTP "+e.method+" "+e.url+(e.status?" → "+e.status:"")+(e.error?" ✗ "+e.error:"");
+        else if(e.ev==="exception") txt = "✗ "+e.type+": "+e.message+loc;
+        else if(e.ev==="commit") txt = "COMMIT"+loc;
+        else if(e.changes) txt = Object.keys(e.changes).map(function(k){return k+": "+e.changes[k][0]+" → "+e.changes[k][1];}).join("; ")+loc;
+        return '<div class="ev '+esc(e.ev)+'">'+esc(ind+txt)+"</div>";
+      }).join("") + "</div></details>";
+  }
+  if((s.findings||[]).length) h += '<div style="margin-top:8px">Findings: '+s.findings.map(function(f){return '<a href="#findings">'+esc(f)+"</a>";}).join(", ")+"</div>";
+  return h;
+}
+
+/* ---------- requirements ---------- */
+(function(){
+  var reqs = Q.requirements || [];
+  var h = '<div class="card"><h2>Requirements coverage</h2>';
+  if(!reqs.length) h += '<p class="muted">No requirements were given: expected behaviour was inferred from the code. See the caveats.</p>';
+  else h += '<div class="tbl"><table><thead><tr><th>#</th><th>Requirement</th><th>Source</th><th>Status</th><th>Scenarios</th></tr></thead><tbody>' +
+    reqs.map(function(r){
+      var scs = SC.filter(function(s){return (s.requirements||[]).indexOf(r.id)>=0;}), st = reqStatus(r);
+      return '<tr><td class="mono">'+esc(r.id)+"</td><td>"+inline(r.text)+'</td><td><span class="tag">'+esc(r.source||"")+"</span></td><td>"+pill("q-"+st, REQ[st])+"</td><td>"+
+        (scs.map(function(s){return pill("r-"+s.result, s.id);}).join(" ")||'<span class="muted">none</span>')+"</td></tr>";
+    }).join("") + "</tbody></table></div>";
+  h += "</div>";
+  if(D.ticket_text) h += '<div class="card"><details><summary><b>Ticket as given</b></summary><pre>'+esc(D.ticket_text)+"</pre></details></div>";
+  el("s-requirements").innerHTML = h;
+})();
+
+/* ---------- impact ---------- */
+(function(){
+  var areas = Q.areas || [], imp = D.impact || {};
+  var h = '<div class="card"><h2>What changed and how each part was tested</h2>';
+  if(areas.length) h += '<div class="tbl"><table><thead><tr><th>#</th><th>Area</th><th>Layer</th><th>Test level</th><th>Why</th><th>Scenarios</th></tr></thead><tbody>' +
+    areas.map(function(a){
+      var scs = SC.filter(function(s){return (s.areas||[]).indexOf(a.id)>=0;});
+      return '<tr><td class="mono">'+esc(a.id)+"</td><td><b>"+esc(a.name||"")+"</b><div>"+(a.files||[]).map(function(f){return anchor(f,null);}).join("<br>")+"</div>"+
+        (a.entry?'<div class="muted" style="font-size:12px">entry: '+anchor(a.entry.file,a.entry.line,a.entry.symbol||a.entry.file)+"</div>":"")+
+        '</td><td><span class="tag">'+esc(a.layer||"")+'</span></td><td><span class="tag">'+esc(LEVELS[a.test_level]||a.test_level||"")+"</span></td><td>"+inline(a.reason||"")+"</td><td>"+
+        scs.map(function(s){return pill("r-"+s.result, s.id);}).join(" ")+"</td></tr>";
+    }).join("") + "</tbody></table></div>";
+  var ia = imp.areas || [];
+  if(ia.length){
+    h += '<h3>Changed files ('+ia.length+')</h3><div class="tbl"><table><thead><tr><th>File</th><th>Layer</th><th>+/−</th><th>Symbols</th><th>Reached from</th><th>Existing tests</th></tr></thead><tbody>' +
+      ia.map(function(a){
+        var first = (a.added_ranges||[])[0];
+        return "<tr><td>"+anchor(a.path, first?first[0]:null, a.path)+'</td><td><span class="tag">'+esc(a.layer)+'</span></td><td class="mono"><span class="ok">+'+a.additions+'</span> <span class="bad">−'+a.deletions+"</span></td><td class=\"mono\" style=\"font-size:12px\">"+
+          esc((a.symbols||[]).slice(0,6).join(", "))+"</td><td style=\"font-size:12px\">"+(a.routes||[]).slice(0,3).map(function(r){return esc((r.method||"")+" "+(r.path||""));}).concat((a.entry_points||[]).slice(0,3).map(function(e){return anchor(e.file,e.line,e.file.split("/").pop()+":"+e.line);})).join("<br>")+
+          '</td><td style="font-size:12px">'+esc(Array.from(new Set((a.covering_tests||[]).map(function(c){return c.file;}))).slice(0,4).join(", ")||"—")+"</td></tr>";
+      }).join("") + "</tbody></table></div>";
+  }
+  h += "</div>";
+  el("s-impact").innerHTML = h;
+})();
+
+/* ---------- findings ---------- */
+(function(){
+  var F = Q.findings || [];
+  var h = F.length ? "" : '<div class="card"><p class="muted">No separate findings. Failed scenarios carry their own fixes.</p></div>';
+  F.forEach(function(f){
+    h += '<div class="card"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'+pill("s-"+f.severity, f.severity)+" <b>"+esc(f.id)+" "+esc(f.title)+"</b>"+
+      ((f.scenarios||[]).length?' <span class="muted">('+esc(f.scenarios.join(", "))+")</span>":"")+"</div>"+
+      md(f.description)+(f.file?"<div>"+anchor(f.file,f.line)+"</div>":"")+(f.recommendation?"<h3>Recommendation</h3>"+md(f.recommendation):"")+(f.code?json(f.code):"")+"</div>";
+  });
+  el("s-findings").innerHTML = h;
+})();
+
+/* ---------- copy for the ticket ---------- */
+(function(){
+  var F = D.formats || {}, cur = "markdown";
+  var h = '<div class="card"><h2>Copy for the ticket</h2><p class="muted">The same table as the Claude Code summary, with the conclusion, failures and caveats. Pick the format your tracker uses and paste it into the ticket.</p>' +
+    '<div class="copybar" role="tablist">' +
+    [["markdown","Markdown (GitHub / GitLab / Linear)"],["jira","Jira wiki"],["plain","Plain text"],["rich","Rich table (Confluence, Jira Cloud, Notion, email)"]].map(function(x){
+      return '<button class="chip'+(x[0]===cur?" on":"")+'" data-fmt="'+x[0]+'" role="tab">'+esc(x[1])+"</button>";}).join("") +
+    '</div><div class="copybar"><button class="btn primary" id="copy">Copy</button><span class="copied" id="copied" aria-live="polite"></span></div>' +
+    '<pre id="fmt" style="max-height:520px"></pre><div id="preview" hidden></div></div>';
+  el("s-ticket").innerHTML = h;
+  function richHtml(){
+    var rows = SC.map(function(s){ return [s.id, s.title, TYPES[s.type]||s.type, RES[s.result]||s.result, EXP[asExpected(s)], s.remarks||""]; });
+    var st = 'style="border:1px solid #ccc;padding:4px 8px;text-align:left;vertical-align:top"';
+    var out = "<p><b>QA result: "+esc(VER[S.verdict]||S.verdict)+"</b>: "+esc(S.headline||"")+"</p>";
+    out += "<table style=\"border-collapse:collapse\"><thead><tr>"+["#","Test scenario","Type","Result","Expected?","Remarks"].map(function(c){return "<th "+st+">"+c+"</th>";}).join("")+"</tr></thead><tbody>"+
+      rows.map(function(r){return "<tr>"+r.map(function(c){return "<td "+st+">"+esc(c)+"</td>";}).join("")+"</tr>";}).join("")+"</tbody></table>";
+    if(S.conclusion) out += "<p><b>Conclusion:</b> "+esc(S.conclusion)+"</p>";
+    var failed = SC.filter(function(s){return s.result==="failed";});
+    if(failed.length) out += "<p><b>Failed scenarios and suggested fixes:</b></p><ul>"+failed.map(function(s){return "<li>"+esc(s.id+" "+s.title+": "+((s.failure||{}).reason||s.remarks||"")+((s.fix||{}).description?" Fix: "+s.fix.description:""))+"</li>";}).join("")+"</ul>";
+    if((Q.caveats||[]).length) out += "<p><b>Caveats:</b></p><ul>"+Q.caveats.map(function(c){return "<li>"+esc(c)+"</li>";}).join("")+"</ul>";
+    return out;
+  }
+  function render(){
+    var rich = cur==="rich";
+    el("fmt").hidden = rich; el("preview").hidden = !rich;
+    if(rich) el("preview").innerHTML = richHtml(); else el("fmt").textContent = F[cur] || "";
+    Array.prototype.forEach.call(document.querySelectorAll("[data-fmt]"), function(b){ b.classList.toggle("on", b.dataset.fmt===cur); b.setAttribute("aria-selected", b.dataset.fmt===cur); });
+  }
+  el("s-ticket").addEventListener("click", function(e){
+    var b = e.target.closest("[data-fmt]");
+    if(b){ cur = b.dataset.fmt; el("copied").textContent = ""; render(); return; }
+    if(e.target.id === "copy"){
+      var text = cur==="rich" ? (F.markdown||"") : (F[cur]||"");
+      var done = function(){ el("copied").textContent = "Copied. Paste it into the ticket."; };
+      var fallback = function(){
+        var ta = document.createElement("textarea"); ta.value = text; document.body.appendChild(ta); ta.select();
+        try { document.execCommand("copy"); done(); } catch(err){ el("copied").textContent = "Select the text and copy it manually."; }
+        document.body.removeChild(ta);
+      };
+      if(cur==="rich" && window.ClipboardItem && navigator.clipboard && navigator.clipboard.write){
+        var html = richHtml();
+        navigator.clipboard.write([new ClipboardItem({"text/html": new Blob([html],{type:"text/html"}), "text/plain": new Blob([text],{type:"text/plain"})})]).then(done, fallback);
+      } else if(navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(text).then(done, fallback);
+      } else fallback();
+    }
+  });
+  render();
+})();
+
+/* ---------- environment ---------- */
+(function(){
+  var env = Q.environment || {}, tl = D.tooling || {};
+  var h = '<div class="card"><h2>Where and how it ran</h2><table><tbody>' +
+    [["Environment", env.env], ["Base URL", env.base_url], ["Database", env.db], ["Notes", env.notes],
+     ["Stack", (tl.stack||[]).join(", ") + ((tl.frameworks||[]).length?" · "+tl.frameworks.join(", "):"")],
+     ["Branch", (M.branch||"")+" @ "+(M.sha||"")+(M.base?" (base "+M.base+")":"")+(M.uncommitted_included?", uncommitted work included":"")],
+     ["Output folder", M.out_dir]].filter(function(r){return r[1];}).map(function(r){return "<tr><th style=\"width:160px\">"+esc(r[0])+"</th><td>"+inline(r[1])+"</td></tr>";}).join("") +
+    "</tbody></table></div>";
+  if((M.commits||[]).length) h += '<div class="card"><h2>Commits on the branch</h2>'+M.commits.slice(0,40).map(function(c){return '<div><code>'+esc(c.short)+"</code> "+esc(c.subject)+' <span class="muted">'+esc(c.author)+", "+esc(c.date)+"</span></div>";}).join("")+"</div>";
+  if((Q.references||[]).length) h += '<div class="card"><h2>References</h2><ul>'+Q.references.map(function(r){return '<li><a href="'+esc(r.url)+'" target="_blank" rel="noopener">'+esc(r.title||r.url)+"</a>"+(r.note?" · "+esc(r.note):"")+"</li>";}).join("")+"</ul></div>";
+  el("s-env").innerHTML = h;
+})();
+
+/* ---------- interactions ---------- */
+function openCode(file, line){
+  var src = D.sources[file];
+  el("dtitle").textContent = file + (line?":"+line:"");
+  if(!src){ el("dsub").textContent = "Source not embedded"; el("dcode").innerHTML = '<p class="muted" style="padding:12px">This file is not embedded in the report.</p>'; }
+  else {
+    var changed = {};
+    ((D.impact||{}).areas||[]).forEach(function(a){ if(a.path===file) (a.added_ranges||[]).forEach(function(r){ for(var n=r[0];n<=r[1];n++) changed[n]=1; }); });
+    el("dsub").textContent = src.total+" lines" + (Object.keys(changed).length?" · changed lines numbered in green":"");
+    el("dcode").innerHTML = src.lines.map(function(l, i){
+      var n = src.start + i;
+      return '<div class="ln'+(n==line?" hl":"")+(changed[n]?" chg":"")+'" id="L'+n+'"><b>'+n+"</b>"+esc(l)+"</div>";
+    }).join("");
+  }
+  el("drawer").classList.add("on"); el("drawer").setAttribute("aria-hidden","false");
+  var target = line && el("L"+line);
+  if(target) target.scrollIntoView({block:"center"});
+  el("dclose").focus();
+}
+el("dclose").addEventListener("click", function(){ el("drawer").classList.remove("on"); el("drawer").setAttribute("aria-hidden","true"); });
+document.addEventListener("keydown", function(e){ if(e.key==="Escape") el("dclose").click(); });
+document.addEventListener("click", function(e){
+  var a = e.target.closest(".anchor, .anchor-node");
+  if(a && a.dataset.file){ openCode(a.dataset.file, a.dataset.line ? parseInt(a.dataset.line,10) : null); return; }
+  var chip = e.target.closest(".chip[data-f]");
+  if(chip){ var f = chip.dataset.f; filt[f] = filt[f]===chip.dataset.v ? null : chip.dataset.v; resultsSection(); return; }
+  var row = e.target.closest("tr.row");
+  if(row) toggleRow(row);
+});
+document.addEventListener("keydown", function(e){
+  var row = e.target.closest && e.target.closest("tr.row");
+  if(row && (e.key==="Enter"||e.key===" ")){ e.preventDefault(); toggleRow(row); }
+});
+function toggleRow(row){
+  var i = row.dataset.i, d = el("d-"+i), open = d.hidden;
+  if(open && !d.dataset.done){ d.querySelector(".det").innerHTML = detail(SC[i]); d.dataset.done = 1; }
+  d.hidden = !open; row.classList.toggle("open", open); row.setAttribute("aria-expanded", open);
+}
+el("theme").addEventListener("click", function(){
+  var r = document.documentElement, dark = r.dataset.theme ? r.dataset.theme==="dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+  r.dataset.theme = dark ? "light" : "dark";
+  try { localStorage.setItem("qa-theme", r.dataset.theme); } catch(err){}
+});
+try { var th = localStorage.getItem("qa-theme"); if(th) document.documentElement.dataset.theme = th; } catch(err){}
+resultsSection();
+show(location.hash.slice(1) || "overview");
+})();
+</script>
+</body>
+</html>
