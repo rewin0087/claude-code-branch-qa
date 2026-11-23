@@ -1,7 +1,9 @@
 # claude-code-branch-qa: headless E2E and functional QA of your branch with Claude Code
 
 [![Claude Code plugin](https://img.shields.io/badge/Claude%20Code-plugin-7c5cff)](https://github.com/rewin0087/claude-code-branch-qa#install)
+[![Version](https://img.shields.io/github/v/tag/rewin0087/claude-code-branch-qa?sort=semver&label=version)](https://github.com/rewin0087/claude-code-branch-qa/tags)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Website](https://img.shields.io/badge/docs-website-blue)](https://rewin0087.github.io/claude-code-branch-qa/)
 
 **`/branch-qa` is a QA agent skill and plugin for [Claude Code](https://claude.com/claude-code).** Type `/branch-qa`, paste the ticket on the next lines, and it QAs the **current git branch** against it:
 

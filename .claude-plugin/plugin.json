@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "QA the current git branch against its ticket: maps what the change impacts (endpoints, UI forms, services, DB, callbacks, jobs, external APIs), plans success/invalid/validation/boundary/failure/edge-case scenarios, runs them headless (test runner, HTTP checks, browser, runtime tracer), pin-points the methods each ran through, marks passed/failed with remarks and fixes, and opens an HTML report with a copy-for-the-ticket results table.",
   "author": {"name": "rewin0087", "url": "https://github.com/rewin0087"},
-  "homepage": "https://github.com/rewin0087/claude-code-branch-qa",
+  "homepage": "https://rewin0087.github.io/claude-code-branch-qa/",
   "repository": "https://github.com/rewin0087/claude-code-branch-qa",
   "license": "MIT",
   "keywords": ["qa", "e2e", "testing", "acceptance-criteria", "headless-browser", "playwright", "api-testing", "claude-code", "skill"]
