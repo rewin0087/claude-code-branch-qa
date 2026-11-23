@@ -176,6 +176,6 @@ class QAValidator(object):
 
     def _artifact(self, sid, kind, rel):
         rel = rel.split("#", 1)[0]
-        base = self.repo if rel.startswith(".qa/") else self.out_dir
+        base = self.repo if rel.startswith(".branch-qa/") else self.out_dir
         if not os.path.exists(os.path.join(base, rel)):
             self.warnings.append("scenario %s: %s %s not found (paths are relative to OUT_DIR)" % (sid, kind, rel))

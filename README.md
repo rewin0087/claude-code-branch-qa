@@ -1,9 +1,9 @@
-# claude-code-qa: headless E2E and functional QA of your branch with Claude Code
+# claude-code-branch-qa: headless E2E and functional QA of your branch with Claude Code
 
-[![Claude Code plugin](https://img.shields.io/badge/Claude%20Code-plugin-7c5cff)](https://github.com/rewin0087/claude-code-qa#install)
+[![Claude Code plugin](https://img.shields.io/badge/Claude%20Code-plugin-7c5cff)](https://github.com/rewin0087/claude-code-branch-qa#install)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-**`/qa` is a QA agent skill and plugin for [Claude Code](https://claude.com/claude-code).** Type `/qa`, paste the ticket on the next lines, and it QAs the **current git branch** against it:
+**`/branch-qa` is a QA agent skill and plugin for [Claude Code](https://claude.com/claude-code).** Type `/branch-qa`, paste the ticket on the next lines, and it QAs the **current git branch** against it:
 
 1. It reads what the branch changed and learns what that change impacts: **endpoints, UI forms, services, models, the database, callbacks, background jobs and external APIs**.
 2. It decides how each part must be tested: **browser E2E, API E2E, functional, unit or data**.
@@ -46,37 +46,37 @@ It runs on your existing Claude Code session, in the terminal, VS Code or JetBra
 - **Safe by default.**
   - Tests run in the test environment, or against the app on **localhost** only. The HTTP and browser runners refuse other hosts, and the test runner refuses production env vars and remote DB URLs.
   - Outbound network is blocked under the tracer.
-  - Running anything asks you first, and it never edits your code. Throwaway tests live in the git-ignored `.qa/` folder.
+  - Running anything asks you first, and it never edits your code. Throwaway tests live in the git-ignored `.branch-qa/` folder.
 
 ## Install
 
 ### As a Claude Code plugin (recommended)
 
 ```text
-/plugin marketplace add rewin0087/claude-code-qa
-/plugin install qa@rewin0087-qa
+/plugin marketplace add rewin0087/claude-code-branch-qa
+/plugin install branch-qa@rewin0087-branch-qa
 ```
 
-From a shell: `claude plugin marketplace add rewin0087/claude-code-qa && claude plugin install qa@rewin0087-qa`.
+From a shell: `claude plugin marketplace add rewin0087/claude-code-branch-qa && claude plugin install branch-qa@rewin0087-branch-qa`.
 
-Claude Code namespaces plugin commands, so the plugin runs as **`/qa:qa`**. Update it with `claude plugin update qa@rewin0087-qa`.
+Claude Code namespaces plugin commands, so the plugin runs as **`/branch-qa:branch-qa`**. Update it with `claude plugin update branch-qa@rewin0087-branch-qa`.
 
-### As a standalone skill (plain `/qa`)
+### As a standalone skill (plain `/branch-qa`)
 
 For every project:
 
 ```bash
-git clone https://github.com/rewin0087/claude-code-qa.git ~/.claude/skills/qa
+git clone https://github.com/rewin0087/claude-code-branch-qa.git ~/.claude/skills/branch-qa
 ```
 
-Or for one project only, clone it into `<repo>/.claude/skills/qa`. Update it with `git -C ~/.claude/skills/qa pull`.
+Or for one project only, clone it into `<repo>/.claude/skills/branch-qa`. Update it with `git -C ~/.claude/skills/branch-qa pull`.
 
 **Requirements:** Python 3.8+ (standard library only) and git. The Ruby tracer needs Ruby 2.6 or later. Browser E2E needs your project's Playwright, Cypress or Capybara, or Python Playwright (`pip install playwright`), which can use your installed Google Chrome.
 
 ## Usage
 
 ```text
-/qa
+/branch-qa
 SHOP-142 Refund limits
 Acceptance criteria
 - Refund amount must be greater than 0
@@ -85,17 +85,17 @@ Acceptance criteria
 - The customer receives a receipt email after a successful refund
 ```
 
-Everything after `/qa`, on the same line or the next ones, is the ticket. Some other forms:
+Everything after `/branch-qa`, on the same line or the next ones, is the ticket. Some other forms:
 
 ```text
-/qa                                    # no ticket: expected behaviour inferred from the code (flagged as a caveat)
-/qa #128                               # fetch the issue with gh / glab
-/qa https://github.com/acme/shop/issues/128
-/qa docs/tickets/SHOP-142.md
-/qa --url http://localhost:3000 <ticket>        # test against the app you already have running
-/qa --base develop --path app/billing <ticket>  # compare with develop, QA only app/billing
-/qa --static <ticket>                  # plan + assess by reading; run nothing
-/qa <ticket> -- log in as admin@example.com / use the :with_items order factory
+/branch-qa                                             # no ticket: expected behaviour inferred from the code (flagged as a caveat)
+/branch-qa #128                                        # fetch the issue with gh / glab
+/branch-qa https://github.com/acme/shop/issues/128
+/branch-qa docs/tickets/SHOP-142.md
+/branch-qa --url http://localhost:3000 <ticket>        # test against the app you already have running
+/branch-qa --base develop --path app/billing <ticket>  # compare with develop, QA only app/billing
+/branch-qa --static <ticket>                           # plan + assess by reading; run nothing
+/branch-qa <ticket> -- log in as admin@example.com / use the :with_items order factory
 ```
 
 | Option | Meaning |
@@ -132,7 +132,7 @@ Branch `feature/SHOP-142-refund-limits` @ `f595c4c` · vs `main` · env: test ·
 **Failed, and how to fix:**
 - **T3 Refund exactly the remaining amount**: … (`shop/refunds.py:19`) **Fix:** Reject only amounts greater than the remaining amount, and add a boundary test.
 **Caveats:** …
-Report: file:///…/.qa/feature-shop-142-refund-limits/report.html
+Report: file:///…/.branch-qa/feature-shop-142-refund-limits/report.html
 ```
 
 ### The report
@@ -156,7 +156,7 @@ It's a single self-contained file that works in light and dark mode. Click any `
 ## How it works
 
 ```text
-/qa + ticket
+/branch-qa + ticket
   │
   ├─ prepare.py ── branch diff vs base ─► changed files, symbols, commits
   │                impact map ─────────► layer · signals · routes · entry points · callers · tests
@@ -176,7 +176,7 @@ It's a single self-contained file that works in light and dark mode. Click any `
   └─ render.py ── validates qa.json ─► report.html · summary.md (chat) · ticket comment
 ```
 
-Output goes to `<repo>/.qa/<branch>/`, which is added to `.git/info/exclude`:
+Output goes to `<repo>/.branch-qa/<branch>/`, which is added to `.git/info/exclude`:
 
 ```text
 meta.json changes.json impact.json tooling.json ticket.md ticket.json
@@ -201,12 +201,27 @@ scripts/
   qakit/                    the logic, one concern per module (see qakit/__init__.py)
 ```
 
+## How it compares
+
+Claude Code has no built-in `/qa`. Several community plugins ship one, and the best known is in [gstack](https://github.com/garrytan/gstack). `/branch-qa` has its own name so it can sit next to them.
+
+| | gstack `/qa` | `/branch-qa` |
+|---|---|---|
+| Starts from | A target: a URL, API route, CLI, job or webhook | The **ticket** plus the branch diff |
+| "Correct" means | Bugs found by exploring the app | The ticket's **acceptance criteria**, with coverage per requirement |
+| Planning | Exploratory, browser-first phases | An impact map (entry points, callers, DB, jobs, callbacks, external calls), then a test level per area and scenarios per requirement and per branch |
+| Changes your code | Yes: a regression test, a fix and a commit per bug | No: it suggests fixes with file:line and leaves the code to you |
+| Pin-pointing | Repro plus a fix | The **code path** per scenario (methods in order, SQL, blocked outbound calls) |
+| Result | Health score (browser) or contract outcomes | Passed / Failed / Blocked / Not run, **Expected?** and **remarks** per scenario |
+| Output | A markdown report and screenshots | Chat table, an HTML report, and a **Copy for the ticket** section (Markdown, Jira, plain text, rich table) |
+| For | A developer who wants the app cleaned up | QA and reviewers who need evidence on the ticket |
+
 ## Related
 
 - [claude-code-review](https://github.com/rewin0087/claude-code-review): `/branch-review` reviews the branch's code against the ticket.
 - [claude-code-investigate](https://github.com/rewin0087/claude-code-investigate): `/investigate` traces and simulates one flow and reproduces bugs.
 
-A typical loop is to run `/branch-review` on the code, `/qa` on the behaviour, and `/investigate` on whatever fails.
+A typical loop is to run `/branch-review` on the code, `/branch-qa` on the behaviour, and `/investigate` on whatever fails.
 
 ## License
 

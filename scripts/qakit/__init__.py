@@ -1,4 +1,4 @@
-"""Business logic for the /qa skill, one concern per module (mostly one class each).
+"""Business logic for the /branch-qa skill, one concern per module (mostly one class each).
 
 The scripts in the parent directory are thin command-line wrappers around these classes:
 
@@ -7,7 +7,7 @@ The scripts in the parent directory are thin command-line wrappers around these 
     jsonio.py       load_json / write_json
     gitcmd.py       Git: git for one repository, base-branch detection, the branch diff
     sourcefile.py   SourceFile, SourceCache: repo files, snippets, enclosing definitions
-    workspace.py    Workspace: the repo + its .qa/<branch>/ output folder and meta.json
+    workspace.py    Workspace: the repo + its .branch-qa/<branch>/ output folder and meta.json
 
   Prepare (prepare.py)
     preparer.py     Preparer, PrepareDigest: branch -> changes, impact map, tooling

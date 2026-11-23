@@ -1,4 +1,4 @@
-"""Workspace: the repository under QA and its output folder (<repo>/.qa/<branch-slug>/)."""
+"""Workspace: the repository under QA and its output folder (<repo>/.branch-qa/<branch-slug>/)."""
 import os
 import re
 import time
@@ -7,7 +7,7 @@ from .errors import QAError
 from .gitcmd import Git
 from .jsonio import load_json, write_json
 
-WALK_SKIP = {".git", "node_modules", "vendor", ".venv", "venv", "dist", "build", "tmp", "coverage", ".qa", ".investigate",
+WALK_SKIP = {".git", "node_modules", "vendor", ".venv", "venv", "dist", "build", "tmp", "coverage", ".branch-qa", ".investigate",
              ".branch-review", "__pycache__", ".tox", ".next", "target"}
 SUBDIRS = ("tests", "logs", "trace", "runs", "screens", "data")
 
@@ -32,7 +32,7 @@ class Workspace(object):
             raise QAError("not a directory: %s" % path)
         root = Git(path).root()
         if not root:
-            raise QAError("%s is not inside a git repository: /qa checks the changes of the current branch." % path)
+            raise QAError("%s is not inside a git repository: /branch-qa checks the changes of the current branch." % path)
         return cls(root)
 
     @classmethod
@@ -59,8 +59,8 @@ class Workspace(object):
         return out
 
     def create(self, slug):
-        """Create (or reuse) .qa/<slug>/ and keep it out of git."""
-        self.out_dir = os.path.join(self.repo, ".qa", slug)
+        """Create (or reuse) .branch-qa/<slug>/ and keep it out of git."""
+        self.out_dir = os.path.join(self.repo, ".branch-qa", slug)
         for sub in ("",) + SUBDIRS:
             os.makedirs(os.path.join(self.out_dir, sub), exist_ok=True)
         self.git.ensure_ignored()

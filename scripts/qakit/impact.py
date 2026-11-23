@@ -191,7 +191,7 @@ class CallerFinder(object):
             return out
         defs = re.compile(r"^\s*(def|class|module|function|func|fn|const|let|var|export\s+(default\s+)?(function|class|const))\s")
         for path, line, text in self.git.grep_word(symbol, limit=600):
-            if path == defined_in or re.search(r"(^|/)(\.qa|\.investigate|\.branch-review|vendor|node_modules|dist|build)/", path):
+            if path == defined_in or re.search(r"(^|/)(\.branch-qa|\.investigate|\.branch-review|vendor|node_modules|dist|build)/", path):
                 continue
             if defs.match(text) or IMPORT_LINE.match(text) or LayerClassifier.layer(path) in ("docs", "config"):
                 continue

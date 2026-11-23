@@ -153,7 +153,7 @@ class HttpCheckRunner(object):
         self.vars = dict(spec.get("vars") or {})
         base = spec.get("base_url")
         if base and not is_local(urllib.parse.urlsplit(base).hostname, tuple(h.lower() for h in allow_hosts)):
-            raise QAError("base_url %s is not a local server: /qa only sends requests to localhost "
+            raise QAError("base_url %s is not a local server: /branch-qa only sends requests to localhost "
                           "(--allow-host <host> for a local or disposable environment)" % base)
 
     def interpolate(self, value):

@@ -22,7 +22,7 @@ REQ_WORDS = re.compile(r"\b(must|should|shall|cannot|can't|can not|only|never|al
 
 
 class TicketSource(object):
-    """Classifies the ticket reference the user typed after /qa."""
+    """Classifies the ticket reference the user typed after /branch-qa."""
 
     def __init__(self, text, repo=None, remote_web=None):
         self.text, self.repo, self.remote_web = (text or "").strip(), repo, remote_web or ""

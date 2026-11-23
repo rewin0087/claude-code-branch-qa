@@ -107,7 +107,7 @@ class Git(object):
         out = self.run(["ls-files", "--others", "--exclude-standard"], check=False)
         return [p for p in out.split("\n") if p]
 
-    def ensure_ignored(self, entry=".qa/"):
+    def ensure_ignored(self, entry=".branch-qa/"):
         """Keep QA output out of commits without touching the tracked .gitignore."""
         git_dir = self.run(["rev-parse", "--git-common-dir"], check=False).strip()
         if not git_dir:

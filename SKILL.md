@@ -1,9 +1,9 @@
 ---
-name: qa
+name: branch-qa
 description: Headless E2E and functional QA of the current git branch against its ticket. Reads the branch's changes, works out what they impact (endpoints, UI forms, services, models, DB, callbacks, background jobs, external APIs) and how each part must be tested (browser E2E, API E2E, functional, unit, data), plans success / valid / invalid / validation / failure / edge-case scenarios from the ticket's acceptance criteria and the code, runs them in the test environment or against the app on localhost (test runner, HTTP checks, headless browser, runtime tracer), pin-points the classes and methods each scenario ran through, marks every scenario passed / failed with expected-or-not and remarks, suggests fixes for failures, and opens an HTML report with a copy-for-the-ticket results table.
 argument-hint: "[ticket text on the next lines | #123 | ABC-123 | ticket URL | ticket file] [--base <branch>] [--committed-only] [--path <dir>] [--url http://localhost:<port>] [--env test|dev] [--ui|--no-ui] [--static] [--scenarios N] [--no-open] [-- instructions]"
 disable-model-invocation: true
-allowed-tools: Bash(python3 ${CLAUDE_SKILL_DIR}/scripts/prepare.py *) Bash(python3 ${CLAUDE_SKILL_DIR}/scripts/ticket.py *) Bash(python3 ${CLAUDE_SKILL_DIR}/scripts/http_check.py *) Bash(python3 ${CLAUDE_SKILL_DIR}/scripts/trace_digest.py *) Bash(python3 ${CLAUDE_SKILL_DIR}/scripts/render.py *) Bash(git diff *) Bash(git log *) Bash(git show *) Bash(git grep *) Bash(git status *) Bash(git ls-files *) Bash(git rev-parse *) Bash(ls *) Read Grep Glob WebFetch Agent Write(**/.qa/**) Edit(**/.qa/**)
+allowed-tools: Bash(python3 ${CLAUDE_SKILL_DIR}/scripts/prepare.py *) Bash(python3 ${CLAUDE_SKILL_DIR}/scripts/ticket.py *) Bash(python3 ${CLAUDE_SKILL_DIR}/scripts/http_check.py *) Bash(python3 ${CLAUDE_SKILL_DIR}/scripts/trace_digest.py *) Bash(python3 ${CLAUDE_SKILL_DIR}/scripts/render.py *) Bash(git diff *) Bash(git log *) Bash(git show *) Bash(git grep *) Bash(git status *) Bash(git ls-files *) Bash(git rev-parse *) Bash(ls *) Read Grep Glob WebFetch Agent Write(**/.branch-qa/**) Edit(**/.branch-qa/**)
 ---
 
 # QA the current branch
@@ -14,12 +14,12 @@ You are a senior QA engineer with full access to the code. Your job is to prove,
 whether the branch does what its ticket asks. Test it the way the user and the system will use
 it, then report each scenario as **passed** or **failed**, say whether the outcome was the
 **expected** one, and give remarks a manual QA can act on. Don't fix the code. You may write
-throwaway tests and specs under `.qa/` only.
+throwaway tests and specs under `.branch-qa/` only.
 
 ## Arguments
 
-- **Ticket** (optional, but strongly preferred). Everything after `/qa` that isn't a flag is the
-  ticket. It may also be on the lines after `/qa`:
+- **Ticket** (optional, but strongly preferred). Everything after `/branch-qa` that isn't a flag is the
+  ticket. It may also be on the lines after `/branch-qa`:
   - pasted text (title, description, acceptance criteria, Given/When/Then, notes)
   - `#123` or `ABC-123`: fetch it with the hint prepare.py prints (`gh issue view`,
     `glab issue view`, or a connected tracker tool). If none works, ask the user to paste it.
@@ -84,7 +84,7 @@ throwaway tests and specs under `.qa/` only.
 python3 ${CLAUDE_SKILL_DIR}/scripts/prepare.py [--base B] [--committed-only] [--path P] --ticket "<first line or reference of the ticket>"
 ```
 
-It prints `OUT_DIR=…` (`<repo>/.qa/<branch>/`, git-ignored), then a digest:
+It prints `OUT_DIR=…` (`<repo>/.branch-qa/<branch>/`, git-ignored), then a digest:
 - the commits
 - each changed area with its **layer**, its signals (validation, DB writes, transactions, async
   jobs, callbacks, external HTTP, forms, UI → API calls, auth, feature flags), the routes and
@@ -288,7 +288,7 @@ For each scenario:
   - `failed`: at least one requirement or important scenario failed.
   - `blocked`: nothing meaningful could run.
 
-## Step 7: Write `<OUT_DIR>/qa.json`
+## Step 7: Write `<OUT_DIR>/branch-qa.json`
 
 Read `${CLAUDE_SKILL_DIR}/references/qa-schema.md` and follow it exactly.
 - All `file` paths are repo-relative, and lines exist in the working tree.
@@ -323,7 +323,7 @@ Relay the **SUMMARY** that render.py printed, essentially as is:
 
 Then add, briefly:
 - questions for the ticket author about ambiguous criteria, if any
-- temporary files you created outside `.qa/` and deleted, if any
+- temporary files you created outside `.branch-qa/` and deleted, if any
 - that the **Copy for the ticket** section of the report has the same table in Markdown, Jira
   and plain-text and rich-table form, ready to paste into the ticket
 

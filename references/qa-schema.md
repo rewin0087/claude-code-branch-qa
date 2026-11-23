@@ -1,6 +1,6 @@
 # qa.json schema
 
-Write `<OUT_DIR>/qa.json`. `render.py` validates it.
+Write `<OUT_DIR>/branch-qa.json`. `render.py` validates it.
 - **Errors** block rendering: unknown ids, bad enums, missing required fields, files or lines
   that don't exist.
 - **Warnings** are printed as ACTION REQUIRED: an uncovered requirement or area, a failure
@@ -81,7 +81,7 @@ OUT_DIR**. Text fields accept light markdown: `code`, **bold**, [links](https://
                      "events": ["refund.created"]},
 
     // Evidence (relative to OUT_DIR). `evidence: executed` needs at least one of run/http/ui/log/trace/command.
-    "command": "bundle exec rspec .qa/…/tests/refunds_spec.rb:12",
+    "command": "bundle exec rspec .branch-qa/…/tests/refunds_spec.rb:12",
     "run": "runs/T1-T6.json",                       // run_tests.py result
     "http": "runs/http.json#T1",                    // http_check.py result, by request id
     "ui": "runs/ui.json#T8",                        // ui_check.py result, by scenario id

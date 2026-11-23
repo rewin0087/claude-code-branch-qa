@@ -4,7 +4,7 @@
 Usage: prepare.py [--cwd DIR] [--base BRANCH] [--committed-only] [--path P ...] [--slug NAME]
                   [--ticket "<#123 | ABC-123 | URL | file | first line of the text>"]
 
-Creates <repo>/.qa/<branch>/ (git-ignored) with meta.json, changes.json, impact.json and
+Creates <repo>/.branch-qa/<branch>/ (git-ignored) with meta.json, changes.json, impact.json and
 tooling.json, and prints a digest: changed areas with their layer, the entry points that reach
 them, routes, callers, existing tests, and the suggested test level (e2e_ui / e2e_api /
 functional / unit / data / manual). Logic lives in qakit.preparer; this file is only the CLI.

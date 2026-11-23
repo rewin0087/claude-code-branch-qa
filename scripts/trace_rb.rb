@@ -14,7 +14,7 @@
 #   1. In a throwaway harness / spec, wrap exactly the scenario:
 #        require "/abs/path/to/trace_rb.rb"
 #        QATrace.record("SC1") { post "/users/sign_in", params: {...} }
-#      -> writes $TRACE_DIR/SC1.json (default: <TRACE_ROOT>/.qa/trace/SC1.json)
+#      -> writes $TRACE_DIR/SC1.json (default: <TRACE_ROOT>/.branch-qa/trace/SC1.json)
 #
 #   2. Run against real development data, rolled back afterwards (RAILS_ENV=development):
 #        QATrace.sandbox("SC1", watch: { order: -> { Order.find(4512) } }) do
@@ -65,7 +65,7 @@ module QATrace
         real = path
         inside = real.start_with?(@root + "/") ? real[@root.length..-1] : nil   # "/app/models/user.rb"
         ok = !inside.nil? && inside !~ LIB_PATH && !real.include?("trace_rb.rb")
-        harness = real.include?("/.qa/")
+        harness = real.include?("/.branch-qa/")
         ok &&= harness || @include_tests || inside !~ TEST_PATH
         ok &&= harness || @focus.empty? || @focus.any? { |f| inside.include?(f) }
         @cache[path] = ok
@@ -576,7 +576,7 @@ module QATrace
 
     def default_dir
       ENV["TRACE_DIR"] || (ENV["TRACE_OUT"] && File.dirname(ENV["TRACE_OUT"])) ||
-        File.join(File.expand_path(ENV["TRACE_ROOT"] || Dir.pwd), ".qa", "trace")
+        File.join(File.expand_path(ENV["TRACE_ROOT"] || Dir.pwd), ".branch-qa", "trace")
     end
 
     # Trace exactly the block; writes <TRACE_DIR>/<name>.json and returns the block's value.

@@ -83,7 +83,7 @@ class AppFiles(object):
         inside = "/" + real[len(self.root):] if real.startswith(self.root) else None    # "/app/models.py"
         if inside is None or re.search(r"(/site-packages/|/dist-packages/|/\.venv/|/venv/|/env/|/node_modules/|/\.tox/|/\.nox/)", inside):
             return False
-        harness = "/.qa/" in inside
+        harness = "/.branch-qa/" in inside
         if not harness and not self.include_tests and re.search(r"(/tests?/|/spec/|/test_[^/]*\.py$|_test\.py$|conftest\.py$)", inside):
             return False
         if not harness and self.focus and not any(f in inside for f in self.focus):
@@ -546,9 +546,9 @@ class Recorder(object):
         if not self.files.is_app(code.co_filename):
             self.probe.on_call(frame, code)
             return None
-        if code.co_name == "<module>" and "/.qa/" not in code.co_filename:
+        if code.co_name == "<module>" and "/.branch-qa/" not in code.co_filename:
             return None        # importing app modules: definitions, not data flow
-        if not code.co_flags & CO_NEWLOCALS and "/.qa/" not in code.co_filename:
+        if not code.co_flags & CO_NEWLOCALS and "/.branch-qa/" not in code.co_filename:
             return None        # a class body being defined (functions always have CO_NEWLOCALS)
         self.depth += 1
         snap = self.snaps.snapshot(frame)
@@ -661,7 +661,7 @@ def main():
     ap.add_argument("--root", default=".", help="project root: only files under it are traced")
     ap.add_argument("--out", required=True, help="where to write the JSON event log")
     ap.add_argument("--max-events", type=int, default=20000)
-    ap.add_argument("--include-tests", action="store_true", help="also trace test files (harnesses in .qa are always traced)")
+    ap.add_argument("--include-tests", action="store_true", help="also trace test files (harnesses in .branch-qa are always traced)")
     ap.add_argument("--focus", action="append", default=[], help="only trace files whose path contains this (repeatable)")
     ap.add_argument("--entry", help="record only while inside this function (e.g. sign_in or AuthService.sign_in)")
     ap.add_argument("--no-mask", action="store_true", help="don't redact secret-looking values")

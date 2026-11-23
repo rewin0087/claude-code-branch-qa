@@ -1,4 +1,4 @@
-"""Preparer: the branch under QA -> .qa/<branch>/ with meta, changes, impact map and tooling.
+"""Preparer: the branch under QA -> .branch-qa/<branch>/ with meta, changes, impact map and tooling.
 
 Writes meta.json, changes.json (files + symbols), impact.json (layers, entry points, routes,
 callers, covering tests, suggested test level per area) and tooling.json (stack, runners,
@@ -18,7 +18,7 @@ from .tooling import DevServerFinder, E2EToolFinder, TestRunnerFinder
 from .workspace import Workspace, slugify
 
 SKIP_FILES = re.compile(r"(^|/)(package-lock\.json|yarn\.lock|pnpm-lock\.yaml|Gemfile\.lock|poetry\.lock|Pipfile\.lock|composer\.lock|"
-                        r"go\.sum|Cargo\.lock)$|\.(min\.js|map|snap|svg|png|jpe?g|gif|ico|pdf|woff2?)$|(^|/)(\.qa|\.investigate|\.branch-review)/")
+                        r"go\.sum|Cargo\.lock)$|\.(min\.js|map|snap|svg|png|jpe?g|gif|ico|pdf|woff2?)$|(^|/)(\.branch-qa|\.investigate|\.branch-review)/")
 MAX_UNTRACKED_LINES = 4000
 
 
