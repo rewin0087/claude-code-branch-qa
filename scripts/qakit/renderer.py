@@ -3,10 +3,12 @@ import glob
 import os
 
 from .errors import QAError
-from .jsonio import load_json
+from .jsonio import JsonFile
 from .report import ReportBuilder
 from .snippets import SnippetCollector
-from .summary import SummaryWriter, TicketFormats, file_url
+from .summary import SummaryWriter
+from .text import Text
+from .ticketformats import TicketFormats
 from .tracelog import TraceLog
 from .validator import QAValidator
 from .workspace import Workspace
@@ -19,13 +21,26 @@ class RenderResult(object):
 
     @property
     def report_url(self):
-        return file_url(self.report_path) if self.report_path else None
+        return Text.file_url(self.report_path) if self.report_path else None
+
+    def format(self):
+        """What render.py prints: the errors, or the report path + chat summary + ACTION REQUIRED warnings."""
+        if self.errors:
+            return "\n".join(["qa.json has %d error(s):" % len(self.errors)] + ["  - " + e for e in self.errors])
+        L = ["REPORT=%s" % self.report_path, "REPORT_URL=%s" % self.report_url,
+             "----- SUMMARY (relay this to the user) -----", self.summary]
+        if self.warnings:
+            L.append("----- ACTION REQUIRED: %d warning(s) -----" % len(self.warnings))
+            L.extend("  - " + w for w in self.warnings)
+            L.append("Fix these in qa.json and run render.py again before replying. "
+                     "If one can't be fixed, say why in your reply.")
+        return "\n".join(L)
 
 
 class Renderer(object):
     def __init__(self, out_dir):
         self.ws = Workspace.load(out_dir)
-        self.qa = load_json(self.ws.path("qa.json"), "qa.json")
+        self.qa = JsonFile.load(self.ws.path("qa.json"), "qa.json")
         self.notes = []
 
     def render(self, out_path=None):
@@ -67,7 +82,7 @@ class Renderer(object):
         out = {}
         for p in sorted(glob.glob(self.ws.path("runs", "*.json"))):
             try:
-                data = load_json(p)
+                data = JsonFile.load(p)
             except QAError as e:
                 self.notes.append(str(e))
                 continue

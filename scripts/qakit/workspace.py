@@ -1,20 +1,14 @@
 """Workspace: the repository under QA and its output folder (<repo>/.branch-qa/<branch-slug>/)."""
 import os
-import re
 import time
 
 from .errors import QAError
 from .gitcmd import Git
-from .jsonio import load_json, write_json
+from .jsonio import JsonFile
 
 WALK_SKIP = {".git", "node_modules", "vendor", ".venv", "venv", "dist", "build", "tmp", "coverage", ".branch-qa", ".investigate",
              ".branch-review", "__pycache__", ".tox", ".next", "target"}
 SUBDIRS = ("tests", "logs", "trace", "runs", "screens", "data")
-
-
-def slugify(text, limit=60):
-    s = re.sub(r"[^A-Za-z0-9]+", "-", text or "").strip("-").lower()
-    return (s[:limit].rstrip("-")) or "qa"
 
 
 class Workspace(object):
@@ -40,7 +34,7 @@ class Workspace(object):
         p = os.path.join(out_dir, "meta.json")
         if not os.path.exists(p):
             raise QAError("meta.json not found in %s (run prepare.py first)" % out_dir)
-        meta = load_json(p, "meta.json")
+        meta = JsonFile.load(p, "meta.json")
         return cls(meta["repo"], os.path.abspath(out_dir), meta)
 
     @property
@@ -69,12 +63,12 @@ class Workspace(object):
     def write_meta(self, data):
         self.meta = dict({"repo": self.repo, "repo_name": os.path.basename(self.repo), "out_dir": self.out_dir,
                           "created": time.strftime("%Y-%m-%d %H:%M:%S")}, **data)
-        write_json(self.path("meta.json"), self.meta, indent=2)
+        JsonFile.write(self.path("meta.json"), self.meta, indent=2)
         return self.meta
 
     def update_meta(self, **kw):
         self.meta.update(kw)
-        write_json(self.path("meta.json"), self.meta, indent=2)
+        JsonFile.write(self.path("meta.json"), self.meta, indent=2)
 
     def path(self, *parts):
         return os.path.join(self.out_dir, *parts)
@@ -91,7 +85,7 @@ class Workspace(object):
         if not os.path.exists(p):
             return None
         try:
-            return load_json(p, name)
+            return JsonFile.load(p, name)
         except QAError as e:
             if on_error:
                 on_error("ignoring " + str(e))

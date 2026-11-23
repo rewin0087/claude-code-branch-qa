@@ -198,7 +198,7 @@ templates/report.html       the report (vanilla JS, no CDN)
 scripts/
   prepare.py ticket.py run_tests.py http_check.py ui_check.py trace_digest.py render.py   CLIs
   trace_py.py trace_rb.rb   standalone runtime tracers (Python sys.settrace / Ruby TracePoint)
-  qakit/                    the logic, one concern per module (see qakit/__init__.py)
+  qakit/                    the logic in classes, one concern per module (map in qakit/__init__.py)
 ```
 
 ## How it compares

@@ -7,12 +7,13 @@ Usage: run_tests.py --dir <OUT_DIR> --id T1 [--env KEY=VAL ...] [--junit PATH] [
 Saves the full output to OUT_DIR/logs/<id>.txt and the result to OUT_DIR/runs/<id>.json (exit
 code, runner summary lines, failing test names, JUnit cases when --junit is given). Refuses
 production environments and non-local DATABASE_URLs. Prints a short digest.
+Logic lives in qakit.testrun; this file is only the CLI.
 """
 import argparse
 import sys
 
 from qakit import QAError
-from qakit.testrun import TestRun
+from qakit.testrun import TestRun, TestRunDigest
 from qakit.workspace import Workspace
 
 
@@ -36,16 +37,7 @@ def main(argv=None):
         sys.exit("run_tests.py: --env takes KEY=VALUE")
     except QAError as e:
         sys.exit("run_tests.py: " + str(e))
-    print("RUN %s: %s (exit %s, %d ms)  log=%s" % (r["id"], r["status"].upper(), r["exit_code"], r["duration_ms"], r["log"]))
-    for s in r["summary"]:
-        print("  %s: %s" % (s["runner"], s["line"]))
-    for f in r["failures"]:
-        print("  FAILED " + f)
-    for c in r["cases"][:80]:
-        print("  [%s] %s %s%s" % (c["status"], c.get("classname") or "", c["name"], (": " + c["message"][:160]) if c.get("message") else ""))
-    print("----- last lines -----")
-    print("\n".join(r["tail"].rstrip().split("\n")[-40:]))
-    print("RUN_JSON=runs/%s.json" % r["id"])
+    print(TestRunDigest(r).format())
 
 
 if __name__ == "__main__":

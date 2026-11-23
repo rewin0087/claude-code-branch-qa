@@ -11,15 +11,15 @@ COMPOSE_DB_IMAGE = re.compile(r"image:\s*['\"]?((?:postgres|postgis|mysql|mariad
 CLIENTS = ("sqlite3", "psql", "mysql", "mongosh", "redis-cli")
 
 
-def redact(key, value):
-    """Hide passwords in URLs and the values of secret-looking keys."""
-    v = URL_CRED.sub(r"\1***\3", value)
-    if SECRET_KEY.search(key) and not re.search(r"url|database|host|port|adapter|username", key, re.I) and v and "<%" not in v:
-        return "***"
-    return v[:200]
-
-
 class DbConfigReader(object):
+    @staticmethod
+    def redact(key, value):
+        """Hide passwords in URLs and the values of secret-looking keys."""
+        v = URL_CRED.sub(r"\1***\3", value)
+        if SECRET_KEY.search(key) and not re.search(r"url|database|host|port|adapter|username", key, re.I) and v and "<%" not in v:
+            return "***"
+        return v[:200]
+
     def __init__(self, repo, files):
         self.repo, self.files = repo, files
         self.found = []
@@ -50,13 +50,13 @@ class DbConfigReader(object):
                 continue
             m = re.match(r"^\s+(adapter|database|host|port|url|username)\s*:\s*(.+)$", line)
             if m and section:
-                self._add("config/database.yml", section, m.group(1), redact(m.group(1), m.group(2)))
+                self._add("config/database.yml", section, m.group(1), self.redact(m.group(1), m.group(2)))
 
     def _dotenv(self, f, base):
         for line in self._text(f).split("\n"):
             m = ENV_DB_KEY.match(line)
             if m:
-                self._add(f, base, m.group(1), redact(m.group(1), m.group(2).strip().strip("'\"")))
+                self._add(f, base, m.group(1), self.redact(m.group(1), m.group(2).strip().strip("'\"")))
 
     def _compose(self, f):
         for m in COMPOSE_DB_IMAGE.finditer(self._text(f)):

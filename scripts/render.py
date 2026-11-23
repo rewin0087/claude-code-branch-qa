@@ -3,30 +3,17 @@
 
 Usage: render.py --dir <OUT_DIR> [--no-open] [--out report.html]
 
-Embeds the referenced source code, recorded traces, context sources and the parsed stack
-trace, writes report.html and summary.md, and prints the summary for the chat. Warnings are
-printed as ACTION REQUIRED: fix them in qa.json and run again.
-Logic lives in qakit.renderer.Renderer; this file is only the CLI.
+Embeds the referenced source code, test runs, HTTP/UI results and recorded traces, writes
+report.html, summary.md and the ticket comment, and prints the summary for the chat. Warnings
+are printed as ACTION REQUIRED: fix them in qa.json and run again.
+Logic lives in qakit.renderer (Renderer, RenderResult) and qakit.report; this file is only the CLI.
 """
 import argparse
-import os
-import subprocess
 import sys
 
 from qakit import QAError
 from qakit.renderer import Renderer
-
-
-def open_in_browser(path):
-    try:
-        if sys.platform == "darwin":
-            subprocess.Popen(["open", path])
-        elif sys.platform.startswith("win"):
-            os.startfile(path)  # noqa
-        else:
-            subprocess.Popen(["xdg-open", path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    except Exception as e:      # noqa
-        print("Could not open browser automatically: %s" % e)
+from qakit.report import ReportOpener
 
 
 def main(argv=None):
@@ -42,23 +29,13 @@ def main(argv=None):
         sys.exit("render.py: " + str(e))
     for note in renderer.notes:
         print("WARNING: " + note)
+    print(result.format())
     if result.errors:
-        print("qa.json has %d error(s):" % len(result.errors))
-        for e in result.errors:
-            print("  - " + e)
         sys.exit(1)
-    print("REPORT=%s" % result.report_path)
-    print("REPORT_URL=%s" % result.report_url)
-    print("----- SUMMARY (relay this to the user) -----")
-    print(result.summary)
-    if result.warnings:
-        print("----- ACTION REQUIRED: %d warning(s) -----" % len(result.warnings))
-        for w in result.warnings:
-            print("  - " + w)
-        print("Fix these in qa.json and run render.py again before replying. "
-              "If one can't be fixed, say why in your reply.")
     if not a.no_open:
-        open_in_browser(result.report_path)
+        problem = ReportOpener.open(result.report_path)
+        if problem:
+            print(problem)
 
 
 if __name__ == "__main__":

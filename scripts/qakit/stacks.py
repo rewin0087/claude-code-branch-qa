@@ -31,6 +31,18 @@ class StackDetector(object):
         self.repo, self.files, self.fs = repo, files, set(files)
         self.stack, self.frameworks = [], []
 
+    @staticmethod
+    def from_extensions(files):
+        """No manifest (requirements.txt, Gemfile, package.json...): guess from file extensions."""
+        ext = {".py": "python", ".rb": "ruby", ".js": "javascript", ".ts": "javascript", ".go": "go", ".php": "php",
+               ".java": "jvm", ".kt": "jvm", ".cs": "dotnet"}
+        counts = {}
+        for f in files:
+            lang = ext.get(os.path.splitext(f)[1])
+            if lang:
+                counts[lang] = counts.get(lang, 0) + 1
+        return [k for k, _ in sorted(counts.items(), key=lambda kv: -kv[1])][:2]
+
     def detect(self):
         """-> (stack, frameworks), e.g. (["ruby"], ["Rails", "RSpec"])."""
         for ecosystem in (self._ruby, self._python, self._node, self._go, self._jvm, self._php, self._dotnet,

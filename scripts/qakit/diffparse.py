@@ -12,11 +12,14 @@ NAME_RX = re.compile(
     r"|^\s*(?:(?:public|private|protected|static|async|override|final|internal)\s+)+[\w<>\[\],.?]+\s+([A-Za-z_]\w*)\s*\(")
 
 
-def symbol_name(text):
-    m = NAME_RX.search(text or "")
-    if not m:
-        return None
-    return next(g for g in m.groups() if g)
+class SymbolName(object):
+    @staticmethod
+    def of(text):
+        """The name a definition line defines: `def refund(` -> refund, `class Order` -> Order."""
+        m = NAME_RX.search(text or "")
+        if not m:
+            return None
+        return next(g for g in m.groups() if g)
 
 
 class ChangedFile(object):
@@ -44,15 +47,15 @@ class ChangedFile(object):
             if n and n not in names and len(n) > 1:
                 names.append(n)
         for ctx in self.hunk_contexts:
-            add(symbol_name(ctx))
+            add(SymbolName.of(ctx))
         for text in self.added_text + self.removed_text:
             if DEFINITION_LINE.match(text):
-                add(symbol_name(text))
+                add(SymbolName.of(text))
         if source_lines:
             for n in self.added:
                 for i in range(min(n, len(source_lines)) - 1, -1, -1):
                     if DEFINITION_LINE.match(source_lines[i]):
-                        add(symbol_name(source_lines[i]))
+                        add(SymbolName.of(source_lines[i]))
                         break
         return names
 

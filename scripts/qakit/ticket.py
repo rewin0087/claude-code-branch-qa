@@ -2,6 +2,8 @@
 
 TicketSource   what the user gave: inline text, a file, a URL, or an issue number like #123 / ABC-123
 TicketParser   ticket text -> id, title, acceptance criteria / requirements (R1, R2, ...)
+TicketFile     OUT_DIR/ticket.md (copied from --file when given) -> parsed -> OUT_DIR/ticket.json
+TicketDigest   what ticket.py prints
 
 Fetching a ticket from a tracker is left to the agent (gh / glab / an MCP connector / WebFetch):
 TicketSource only says which tool fits. Requirements found here are a starting point; the agent
@@ -9,6 +11,10 @@ refines them in qa.json.
 """
 import os
 import re
+import shutil
+
+from .errors import QAError
+from .jsonio import JsonFile
 
 TICKET_ID = re.compile(r"\b([A-Z][A-Z0-9]{1,9}-\d+)\b|(?:^|\s)#(\d+)\b")
 AC_HEADING = re.compile(r"^\s*(?:#+\s*|\*\*|__)?\s*(acceptance\s+criteria|ac|requirements?|expected\s+(?:behaviou?r|results?)"
@@ -132,3 +138,41 @@ class TicketParser(object):
                 seen.add(r.lower())
                 out.append({"id": "R%d" % (len(out) + 1), "text": r[:500], "source": "ticket"})
         return out[:40]
+
+
+class TicketFile(object):
+    def __init__(self, workspace):
+        self.ws = workspace
+        self.path = workspace.path("ticket.md")
+
+    def import_file(self, given):
+        """Copy a ticket file (repo-relative or absolute) into OUT_DIR/ticket.md."""
+        src = given if os.path.isabs(given) else os.path.join(self.ws.repo, given)
+        if not os.path.isfile(src):
+            raise QAError("ticket file not found: %s" % given)
+        if os.path.abspath(src) != os.path.abspath(self.path):
+            shutil.copyfile(src, self.path)
+
+    def parse(self):
+        if not os.path.exists(self.path):
+            raise QAError("no ticket at %s: write the ticket text there, or pass --file" % self.path)
+        with open(self.path, errors="replace") as fh:
+            parsed = TicketParser(fh.read()).parse()
+        JsonFile.write(self.ws.path("ticket.json"), parsed, indent=2)
+        return parsed
+
+
+class TicketDigest(object):
+    def __init__(self, parsed, json_path):
+        self.parsed, self.json_path = parsed, json_path
+
+    def format(self):
+        p = self.parsed
+        title = p["title"] or ""
+        L = ["Ticket: %s" % (title if p["id"] and p["id"] in title else "%s %s" % (p["id"] or "(no id)", title)),
+             "Requirements found (%d):" % len(p["requirements"])]
+        L.extend("  %s  %s" % (r["id"], r["text"]) for r in p["requirements"])
+        if not p["requirements"]:
+            L.append("  none recognised: read the ticket and write the requirements into qa.json yourself")
+        L.append("TICKET_JSON=%s" % self.json_path)
+        return "\n".join(L)

@@ -1,6 +1,7 @@
 """Raw runtime-tracer logs (trace_py.py / trace_rb.rb).
 
 TraceLog     loads a log and trims it for embedding in the HTML report ("recorded trace").
+SqlTables    the tables a SQL statement touches.
 TraceDigest  formats it for the QA agent: an indented call tree with the data changes per
              line, SQL, HTTP, exceptions and return values, loops collapsed, plus which lines ran.
 """
@@ -8,28 +9,9 @@ import json
 import re
 
 from .errors import QAError
+from .text import Text
 
 KEEP = ("call", "return", "sql", "http", "exception", "commit")
-
-
-def short(v, n=120):
-    v = "∅" if v is None else str(v)
-    return v if len(v) <= n else v[:n - 1] + "…"
-
-
-def line_ranges(nums):
-    """[1, 2, 3, 7, 9, 10] -> '1-3,7,9-10'"""
-    out, start, prev = [], None, None
-    for n in nums:
-        if start is not None and n == prev + 1:
-            prev = n
-            continue
-        if start is not None:
-            out.append(str(start) if start == prev else "%d-%d" % (start, prev))
-        start = prev = n
-    if start is not None:
-        out.append(str(start) if start == prev else "%d-%d" % (start, prev))
-    return ",".join(out)
 
 
 TABLE_RX = {
@@ -40,13 +22,16 @@ TABLE_RX = {
 }
 
 
-def sql_tables(op, sql):
-    rx = TABLE_RX.get(op if op in TABLE_RX else "SELECT")
-    seen = []
-    for t in rx.findall(sql or ""):
-        if t.lower() not in ("select", "lateral") and t not in seen:
-            seen.append(t)
-    return seen
+class SqlTables(object):
+    @staticmethod
+    def of(op, sql):
+        """The tables an INSERT / UPDATE / DELETE / SELECT statement touches, in order."""
+        rx = TABLE_RX.get(op if op in TABLE_RX else "SELECT")
+        seen = []
+        for t in rx.findall(sql or ""):
+            if t.lower() not in ("select", "lateral") and t not in seen:
+                seen.append(t)
+        return seen
 
 
 class TraceLog(object):
@@ -109,7 +94,7 @@ class TraceLog(object):
             if e["ev"] != "sql":
                 continue
             op = (e.get("op") or "").upper()
-            tables = sql_tables(op, e.get("sql"))
+            tables = SqlTables.of(op, e.get("sql"))
             if op in ("INSERT", "UPDATE", "DELETE", "REPLACE", "UPSERT", "MERGE"):
                 writes.append({"op": op, "tables": tables, "sql": e.get("sql"), "params": e.get("params"),
                                "file": e.get("file"), "line": e.get("line")})
@@ -173,7 +158,7 @@ class TraceDigest(object):
         L.append("\nFiles touched: " + ", ".join(files[:40]))
         executed = self.log.executed_lines()
         L.append("Executed lines per file (use them to tell which branches ran):")
-        L.extend("  %s: %s" % (f, line_ranges(sorted(executed[f]))) for f in files[:25] if f in executed)
+        L.extend("  %s: %s" % (f, Text.line_ranges(sorted(executed[f]))) for f in files[:25] if f in executed)
         return "\n".join(L)
 
     def _db_section(self):
@@ -185,7 +170,7 @@ class TraceDigest(object):
             L.append("  reads: " + ", ".join("%s ×%d" % kv for kv in sorted(db["reads"].items())))
         for w in db["writes"][:40]:
             L.append("  %s %s at %s:%s  %s" % (w["op"], ",".join(w["tables"]) or "?", w["file"], w["line"],
-                                              ("params=" + short(w["params"], 80)) if w.get("params") else short(w["sql"], 100)))
+                                              ("params=" + Text.short(w["params"], 80)) if w.get("params") else Text.short(w["sql"], 100)))
         if db["commits"]:
             L.append("  COMMIT ×%d reached the database" % db["commits"])
         return L
@@ -206,7 +191,7 @@ class TraceDigest(object):
                 if not w.get("changes"):
                     L.append("  watch %s: unchanged" % w["name"])
                 for c in (w.get("changes") or [])[:20]:
-                    L.append("  watch %s.%s: %s → %s" % (w["name"], c["path"], short(c["before"], 50), short(c["after"], 70)))
+                    L.append("  watch %s.%s: %s → %s" % (w["name"], c["path"], Text.short(c["before"], 50), Text.short(c["after"], 70)))
             for m in sb.get("emails") or []:
                 L.append("  email captured (not sent): %s" % m.get("subject"))
             for j in sb.get("jobs") or []:
@@ -248,22 +233,22 @@ class TraceDigest(object):
         """One event as text (without indentation), or None for lines that changed nothing."""
         kind, loc = e["ev"], "%s:%s" % (e.get("file"), e.get("line"))
         if kind == "call":
-            args = ", ".join("%s=%s" % (k, short(v, 60)) for k, v in (e.get("args") or {}).items())
+            args = ", ".join("%s=%s" % (k, Text.short(v, 60)) for k, v in (e.get("args") or {}).items())
             return "→ %s(%s)  [%s]" % (e.get("fn"), args, loc)
         if kind == "return":
-            return "← %s returned %s  [%s]" % (e.get("fn"), short(e.get("value"), 100), loc)
+            return "← %s returned %s  [%s]" % (e.get("fn"), Text.short(e.get("value"), 100), loc)
         if kind == "line":
             if not e.get("changes"):
                 return None     # executed but changed nothing: kept in the raw log, skipped here
-            return "  %s  %s" % (loc, "; ".join("%s: %s → %s" % (k, short(v[0], 50), short(v[1], 70)) for k, v in e["changes"].items()))
+            return "  %s  %s" % (loc, "; ".join("%s: %s → %s" % (k, Text.short(v[0], 50), Text.short(v[1], 70)) for k, v in e["changes"].items()))
         if kind == "sql":
-            return "  %s  SQL %s%s" % (loc, short(e.get("sql"), 160), ("  params=" + short(e.get("params"), 80)) if e.get("params") else "")
+            return "  %s  SQL %s%s" % (loc, Text.short(e.get("sql"), 160), ("  params=" + Text.short(e.get("params"), 80)) if e.get("params") else "")
         if kind == "commit":
             return "  %s  COMMIT (via %s)" % (loc, e.get("via"))
         if kind == "http":
             return "  %s  HTTP %s %s%s%s" % (loc, e.get("method"), e.get("url"), (" → %s" % e["status"]) if e.get("status") else "",
                                             (" ✗ %s" % e["error"]) if e.get("error") else "")
         if kind == "exception":
-            return "  %s  ✗ RAISE %s: %s%s" % (loc, e.get("type"), short(e.get("message"), 160),
+            return "  %s  ✗ RAISE %s: %s%s" % (loc, e.get("type"), Text.short(e.get("message"), 160),
                                               " (from library code)" if e.get("origin") == "library" else "")
         return None

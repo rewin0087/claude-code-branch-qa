@@ -2,24 +2,21 @@
 
 Writes meta.json, changes.json (files + symbols), impact.json (layers, entry points, routes,
 callers, covering tests, suggested test level per area) and tooling.json (stack, runners,
-E2E tools, dev servers, tracers, database config). Prints a digest for the agent.
-"""
-import os
-import re
+E2E tools, dev servers, tracers, database config). PrepareDigest prints what the agent reads.
 
-from .dbconfig import DbConfigReader
-from .diffparse import ChangedFile, DiffParser
+  branchchanges.py  BranchChanges   base branch, merge-base, changed + untracked files
+  impact.py         ImpactAnalyzer  what the changes reach and how to test them
+  tooling.py        ToolingSurvey   how this project can be exercised
+  ticket.py         TicketSource    what kind of ticket reference the user gave
+"""
+from .branchchanges import BranchChanges
 from .errors import QAError
 from .impact import ImpactAnalyzer
-from .jsonio import write_json
-from .stacks import StackDetector
+from .jsonio import JsonFile
+from .text import Text
 from .ticket import TicketSource
-from .tooling import DevServerFinder, E2EToolFinder, TestRunnerFinder
-from .workspace import Workspace, slugify
-
-SKIP_FILES = re.compile(r"(^|/)(package-lock\.json|yarn\.lock|pnpm-lock\.yaml|Gemfile\.lock|poetry\.lock|Pipfile\.lock|composer\.lock|"
-                        r"go\.sum|Cargo\.lock)$|\.(min\.js|map|snap|svg|png|jpe?g|gif|ico|pdf|woff2?)$|(^|/)(\.branch-qa|\.investigate|\.branch-review)/")
-MAX_UNTRACKED_LINES = 4000
+from .tooling import ToolingSurvey
+from .workspace import Workspace
 
 
 class PrepareOptions(object):
@@ -33,89 +30,31 @@ class Preparer(object):
         self.opts = opts
         self.ws = Workspace.for_path(opts.cwd)
         self.git = self.ws.git
+        self.changes = BranchChanges(self.ws, opts.base, opts.committed_only, opts.paths)
 
     def run(self):
         branch = self.git.branch() or "HEAD"
-        base, since = self._base(branch)
-        changed = self._changed_files(since)
+        base, since = self.changes.base(branch)
+        changed = self.changes.files(since)
         if not changed:
             raise QAError("No changes between %s and the working tree on '%s': nothing to QA. "
                           "Pass --base <branch> if the base branch is a different one." % (base or "HEAD", branch))
-        out = self.ws.create(self.opts.slug or slugify(branch))
-        stack, frameworks = StackDetector(self.ws.repo, self.ws.files).detect()
-        if not stack:
-            stack = self._stack_from_extensions()
-        runners = TestRunnerFinder(self.ws.repo, self.ws.files, stack, frameworks)
-        e2e = E2EToolFinder(self.ws.repo, self.ws.files, frameworks).find()
-        has_browser = any(t["kind"] == "project" and t["tool"] in ("playwright", "cypress", "capybara", "selenium") or
-                          t["tool"] == "ui_check.py" and t["available"] for t in e2e)
-        impact = ImpactAnalyzer(self.ws, changed, has_browser).analyze()
-        servers = DevServerFinder(self.ws.repo, self.ws.files, frameworks)
-        tooling = {"stack": stack, "frameworks": frameworks, "test_runners": runners.runners(), "tracers": runners.tracers(),
-                   "e2e": e2e, "dev_servers": servers.commands(), "listening": servers.listening(),
-                   "django_settings": runners.django_settings(),
-                   "database": DbConfigReader(self.ws.repo, self.ws.files).read()}
-        commits = self.git.commits(since) if since else []
-        ticket = TicketSource(self.opts.ticket_ref, self.ws.repo, self.git.remote_web_url())
-        meta = self.ws.write_meta({
-            "branch": branch, "base": base, "merge_base": since, "sha": self.git.head_sha(),
-            "remote": self.git.remote_web_url(), "uncommitted_included": not self.opts.committed_only,
-            "commits": commits, "ticket_ref": {"kind": ticket.kind(), "text": (self.opts.ticket_ref or "")[:300],
-                                               "fetch": ticket.fetch_hint()}})
-        write_json(self.ws.path("changes.json"), [c.to_dict(self.ws_source(c.path)) for c in changed])
-        write_json(self.ws.path("impact.json"), impact)
-        write_json(self.ws.path("tooling.json"), tooling)
+        self.ws.create(self.opts.slug or Text.slugify(branch))
+        survey = ToolingSurvey(self.ws.repo, self.ws.files)
+        tooling = survey.collect()
+        impact = ImpactAnalyzer(self.ws, changed, survey.has_browser_tooling(tooling)).analyze()
+        meta = self.ws.write_meta(self._meta(branch, base, since))
+        JsonFile.write(self.ws.path("changes.json"), [c.to_dict(self.changes.source_lines(c.path)) for c in changed])
+        JsonFile.write(self.ws.path("impact.json"), impact)
+        JsonFile.write(self.ws.path("tooling.json"), tooling)
         return meta, impact, tooling
 
-    def _stack_from_extensions(self):
-        """No manifest (requirements.txt, Gemfile, package.json...): guess from file extensions."""
-        ext = {".py": "python", ".rb": "ruby", ".js": "javascript", ".ts": "javascript", ".go": "go", ".php": "php",
-               ".java": "jvm", ".kt": "jvm", ".cs": "dotnet"}
-        counts = {}
-        for f in self.ws.files:
-            lang = ext.get(os.path.splitext(f)[1])
-            if lang:
-                counts[lang] = counts.get(lang, 0) + 1
-        return [k for k, _ in sorted(counts.items(), key=lambda kv: -kv[1])][:2]
-
-    def ws_source(self, rel):
-        text = self.ws.read_text(rel)
-        return text.split("\n") if text is not None else None
-
-    def _base(self, branch):
-        if self.opts.base:
-            base = self.git.resolve_ref(self.opts.base)
-            if not base:
-                raise QAError("Base branch '%s' not found." % self.opts.base)
-        else:
-            base = self.git.detect_base(branch)
-        if not base:      # on the base branch itself (or no base): QA the uncommitted work against HEAD
-            return None, "HEAD" if self.git.run(["rev-parse", "--verify", "--quiet", "HEAD"], check=False) else None
-        return base, self.git.merge_base(base)
-
-    def _changed_files(self, since):
-        files = []
-        if since:
-            files = DiffParser().parse(self.git.diff(since, uncommitted=not self.opts.committed_only))
-        if not self.opts.committed_only:
-            known = {f.path for f in files}
-            for rel in self.git.untracked():
-                if rel not in known and not SKIP_FILES.search(rel):
-                    files.append(self._untracked(rel))
-        files = [f for f in files if f and not SKIP_FILES.search(f.path)]
-        if self.opts.paths:
-            files = [f for f in files if any(f.path == p or f.path.startswith(p.rstrip("/") + "/") for p in self.opts.paths)]
-        return files
-
-    def _untracked(self, rel):
-        text = self.ws.read_text(rel)
-        if text is None or "\0" in text[:4000]:
-            return None
-        cf = ChangedFile(rel, status="added")
-        lines = text.split("\n")[:MAX_UNTRACKED_LINES]
-        cf.added = list(range(1, len(lines) + 1))
-        cf.added_text = lines
-        return cf
+    def _meta(self, branch, base, since):
+        ticket = TicketSource(self.opts.ticket_ref, self.ws.repo, self.git.remote_web_url())
+        return {"branch": branch, "base": base, "merge_base": since, "sha": self.git.head_sha(),
+                "remote": self.git.remote_web_url(), "uncommitted_included": not self.opts.committed_only,
+                "commits": self.git.commits(since) if since else [],
+                "ticket_ref": {"kind": ticket.kind(), "text": (self.opts.ticket_ref or "")[:300], "fetch": ticket.fetch_hint()}}
 
 
 class PrepareDigest(object):

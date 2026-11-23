@@ -1,9 +1,11 @@
 """Running a test command and turning its output into per-test results.
 
-EnvGuard       refuses commands aimed at production (RAILS_ENV/NODE_ENV/APP_ENV=production, remote DATABASE_URL)
 JUnitParser    JUnit XML (pytest --junitxml, rspec_junit_formatter, jest-junit, vitest, playwright, go-junit) -> cases
 OutputParser   the runner's own summary line(s): pytest, rspec, minitest, jest/vitest, go, phpunit, playwright, cypress, django
-TestRun        runs the command with a timeout, saves the log under logs/, writes runs/<id>.json
+ProcessRunner  runs a command with a timeout and returns its exit code and combined output
+TestRun        guards + runs the command, saves the log under logs/, writes runs/<id>.json
+TestRunDigest  the CLI's summary of one run
+(EnvGuard, which refuses production targets, lives in safety.py.)
 """
 import os
 import re
@@ -12,24 +14,11 @@ import time
 import xml.etree.ElementTree as ET
 
 from .errors import QAError
-from .jsonio import write_json
+from .jsonio import JsonFile
+from .safety import EnvGuard
 
-PROD = re.compile(r"\b(RAILS_ENV|RACK_ENV|NODE_ENV|APP_ENV|DJANGO_ENV|FLASK_ENV|ENVIRONMENT|ASPNETCORE_ENVIRONMENT|MIX_ENV)\s*=\s*['\"]?prod(uction)?\b", re.I)
-DB_URL = re.compile(r"\b(DATABASE_URL|DB_HOST|PGHOST|MYSQL_HOST)\s*=\s*['\"]?([^\s'\"]+)")
-LOCAL_HOST = re.compile(r"(localhost|127\.0\.0\.1|::1|0\.0\.0\.0|\.local\b|\.test\b|sqlite|^db$|^postgres$|^mysql$|@db[:/]|@postgres[:/]|@mysql[:/])", re.I)
 ANSI = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
 LOG_TAIL = 12000
-
-
-class EnvGuard(object):
-    @staticmethod
-    def check(cmd_text, env):
-        joined = cmd_text + " " + " ".join("%s=%s" % kv for kv in env.items())
-        if PROD.search(joined):
-            raise QAError("refusing to run: the command targets a production environment")
-        for m in DB_URL.finditer(joined):
-            if not LOCAL_HOST.search(m.group(2)):
-                raise QAError("refusing to run: %s points at a non-local database (%s)" % (m.group(1), m.group(2).split("@")[-1][:60]))
 
 
 class JUnitParser(object):
@@ -92,6 +81,30 @@ class OutputParser(object):
         return out[:limit]
 
 
+class ProcessRunner(object):
+    def __init__(self, cmd, env, cwd, timeout):
+        self.cmd, self.env, self.cwd, self.timeout = cmd, env, cwd, timeout
+
+    def run(self):
+        """-> (exit code or None on timeout, output with ANSI colours removed, timed out?)"""
+        try:
+            p = subprocess.run(self.cmd, cwd=self.cwd, env=dict(os.environ, **self.env), capture_output=True, text=True,
+                               errors="replace", timeout=self.timeout)
+            code, output, timed_out = p.returncode, (p.stdout or "") + ("\n" + p.stderr if p.stderr else ""), False
+        except subprocess.TimeoutExpired as e:
+            code, timed_out = None, True
+            output = self._decode(e.stdout) + "\n" + self._decode(e.stderr) + "\n[qa] TIMED OUT after %ss" % self.timeout
+        except OSError as e:
+            raise QAError("could not start %s: %s" % (self.cmd[0], e))
+        return code, ANSI.sub("", output), timed_out
+
+    @staticmethod
+    def _decode(b):
+        if b is None:
+            return ""
+        return b.decode("utf-8", "replace") if isinstance(b, bytes) else b
+
+
 class TestRun(object):
     def __init__(self, workspace, run_id, cmd, env=None, cwd=None, timeout=900, junit=None):
         if not re.match(r"^[\w.-]+$", run_id or ""):
@@ -103,34 +116,37 @@ class TestRun(object):
     def run(self):
         cmd_text = " ".join(self.cmd)
         EnvGuard.check(cmd_text, self.env)
-        env = dict(os.environ, **self.env)
         t0 = time.time()
+        code, output, timed_out = ProcessRunner(self.cmd, self.env, self.cwd, self.timeout).run()
         log_rel = os.path.join("logs", "%s.txt" % self.id)
-        timed_out = False
-        try:
-            p = subprocess.run(self.cmd, cwd=self.cwd, env=env, capture_output=True, text=True, errors="replace",
-                               timeout=self.timeout)
-            code, output = p.returncode, (p.stdout or "") + ("\n" + p.stderr if p.stderr else "")
-        except subprocess.TimeoutExpired as e:
-            timed_out, code = True, None
-            output = _text(e.stdout) + "\n" + _text(e.stderr) + "\n[qa] TIMED OUT after %ss" % self.timeout
-        except OSError as e:
-            raise QAError("could not start %s: %s" % (self.cmd[0], e))
-        output = ANSI.sub("", output)
-        with open(self.ws.path(log_rel), "w") as fh:
-            fh.write("$ %s%s\n(cwd %s)\n\n%s" % (" ".join("%s=%s" % kv for kv in self.env.items()) + " " if self.env else "",
-                                                 cmd_text, self.cwd, output))
+        self._write_log(log_rel, cmd_text, output)
         cases = JUnitParser.parse(self.junit) if self.junit and os.path.exists(self.junit) else []
         result = {"id": self.id, "cmd": cmd_text, "env": self.env, "cwd": self.cwd, "exit_code": code, "timed_out": timed_out,
                   "duration_ms": int((time.time() - t0) * 1000), "log": log_rel,
                   "status": "passed" if code == 0 else ("blocked" if timed_out else "failed"),
                   "summary": OutputParser.summary(output), "failures": OutputParser.failures(output),
                   "cases": cases, "tail": output[-LOG_TAIL:]}
-        write_json(self.ws.path("runs", "%s.json" % self.id), result)
+        JsonFile.write(self.ws.path("runs", "%s.json" % self.id), result)
         return result
 
+    def _write_log(self, rel, cmd_text, output):
+        env = " ".join("%s=%s" % kv for kv in self.env.items()) + " " if self.env else ""
+        with open(self.ws.path(rel), "w") as fh:
+            fh.write("$ %s%s\n(cwd %s)\n\n%s" % (env, cmd_text, self.cwd, output))
 
-def _text(b):
-    if b is None:
-        return ""
-    return b.decode("utf-8", "replace") if isinstance(b, bytes) else b
+
+class TestRunDigest(object):
+    def __init__(self, result):
+        self.r = result
+
+    def format(self):
+        r = self.r
+        L = ["RUN %s: %s (exit %s, %d ms)  log=%s" % (r["id"], r["status"].upper(), r["exit_code"], r["duration_ms"], r["log"])]
+        L.extend("  %s: %s" % (s["runner"], s["line"]) for s in r["summary"])
+        L.extend("  FAILED " + f for f in r["failures"])
+        L.extend("  [%s] %s %s%s" % (c["status"], c.get("classname") or "", c["name"], (": " + c["message"][:160]) if c.get("message") else "")
+                 for c in r["cases"][:80])
+        L.append("----- last lines -----")
+        L.append("\n".join(r["tail"].rstrip().split("\n")[-40:]))
+        L.append("RUN_JSON=runs/%s.json" % r["id"])
+        return "\n".join(L)

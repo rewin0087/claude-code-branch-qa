@@ -8,13 +8,14 @@ The spec format is in qakit/httpcheck.py (requests with json/form bodies, expect
 matchers, values saved from one response and reused as {{name}}, cookies kept across requests).
 Writes OUT_DIR/runs/<name>.json and prints one line per request with the failed assertions.
 Only loopback hosts are allowed unless --allow-host names a local/disposable environment.
+Logic lives in qakit.httpcheck; this file is only the CLI.
 """
 import argparse
 import sys
 
 from qakit import QAError
-from qakit.httpcheck import HttpCheckRunner
-from qakit.jsonio import load_json, write_json
+from qakit.httpcheck import HttpCheckDigest, HttpCheckRunner
+from qakit.jsonio import JsonFile
 from qakit.workspace import Workspace
 
 
@@ -29,25 +30,15 @@ def main(argv=None):
     a = ap.parse_args(argv)
     try:
         ws = Workspace.load(a.dir)
-        spec = load_json(a.spec, "spec")
+        spec = JsonFile.load(a.spec, "spec")
         if a.base_url:
             spec["base_url"] = a.base_url
         res = HttpCheckRunner(spec, a.allow_host, a.only).run()
     except QAError as e:
         sys.exit("http_check.py: " + str(e))
     res["spec"] = a.spec
-    write_json(ws.path("runs", "%s.json" % a.name), res)
-    for r in res["results"]:
-        resp = r.get("response") or {}
-        req = r.get("request") or {}
-        print("%-4s %-7s %s %s → %s (%s ms)  %s" % (r["id"], r["result"].upper(), req.get("method", ""), req.get("url", ""),
-                                                 resp.get("status", "-"), resp.get("ms", "-"), r.get("name", "")))
-        if r.get("error"):
-            print("       error: " + r["error"])
-        for x in r["assertions"]:
-            if not x["ok"]:
-                print("       ✗ %s: expected %s, got %s" % (x["check"], x["expected"], str(x["actual"])[:200]))
-    print("%d passed, %d failed  RESULT_JSON=runs/%s.json" % (res["passed"], res["failed"], a.name))
+    JsonFile.write(ws.path("runs", "%s.json" % a.name), res)
+    print(HttpCheckDigest(res, a.name).format())
 
 
 if __name__ == "__main__":

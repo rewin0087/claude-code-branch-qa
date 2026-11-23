@@ -1,4 +1,4 @@
-"""The enums of qa.json, and how each value is shown."""
+"""The enums of qa.json, how each value is shown, and Outcomes (values derived from results)."""
 VERDICTS = {"passed": "✅ Passed", "passed_with_caveats": "✅ Passed with caveats", "failed": "❌ Failed",
             "blocked": "⛔ Blocked"}
 RESULTS = {"passed": "✅ Passed", "failed": "❌ Failed", "blocked": "⛔ Blocked", "not_run": "⏭ Not run"}
@@ -20,21 +20,26 @@ REQ_SOURCES = ("ticket", "code", "inferred", "user")
 REQ_STATUS = {"met": "✅ Met", "not_met": "❌ Not met", "partial": "◐ Partly met", "untested": "⏭ Not tested"}
 
 
-def as_expected(sc):
-    """The scenario's "Expected?" value: given, or derived from its result."""
-    v = sc.get("as_expected")
-    if v in AS_EXPECTED:
-        return v
-    return {"passed": "yes", "failed": "no"}.get(sc.get("result"), "n/a")
+class Outcomes(object):
+    """Values derived from a scenario's or requirement's results."""
 
+    @staticmethod
+    def as_expected(sc):
+        """The scenario's "Expected?" value: given, or derived from its result."""
+        v = sc.get("as_expected")
+        if v in AS_EXPECTED:
+            return v
+        return {"passed": "yes", "failed": "no"}.get(sc.get("result"), "n/a")
 
-def requirement_status(req, scenarios):
-    if req.get("status") in REQ_STATUS:
-        return req["status"]
-    res = [s.get("result") for s in scenarios if req["id"] in (s.get("requirements") or [])]
-    ran = [r for r in res if r in ("passed", "failed")]
-    if not ran:
-        return "untested"
-    if all(r == "passed" for r in ran):
-        return "met" if len(ran) == len(res) else "partial"
-    return "not_met" if all(r == "failed" for r in ran) else "partial"
+    @staticmethod
+    def requirement_status(req, scenarios):
+        """met | not_met | partial | untested, from the scenarios that cover the requirement."""
+        if req.get("status") in REQ_STATUS:
+            return req["status"]
+        res = [s.get("result") for s in scenarios if req["id"] in (s.get("requirements") or [])]
+        ran = [r for r in res if r in ("passed", "failed")]
+        if not ran:
+            return "untested"
+        if all(r == "passed" for r in ran):
+            return "met" if len(ran) == len(res) else "partial"
+        return "not_met" if all(r == "failed" for r in ran) else "partial"

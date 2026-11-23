@@ -28,6 +28,7 @@ the code itself are detected and reported, because those changes would persist.
 Structure (one file on purpose, so it runs under any interpreter without installing anything):
   AppFiles        which files are "our code" (under --root, not site-packages / tests)
   ValueFormatter  safe, redacted, size-limited repr of values (never triggers a DB query)
+  PlainValue      watched values as plain data, and their differences
   Snapshotter     the variables of a frame, with app objects expanded attribute by attribute
   EventLog        the recorded events, the event limit, and writing the JSON log
   LibraryProbe    SQL, HTTP and COMMIT calls made by libraries, attributed to the app line that caused them
@@ -372,22 +373,41 @@ class NetworkGuard(object):
         raise ConnectionRefusedError("qa: outbound connection to %s:%s blocked" % (host, port))
 
 
-def to_plain(value, fmt, depth=0):
-    """JSON-safe, masked copy of a watched value (dicts, lists, model objects)."""
-    if value is None or isinstance(value, (bool, int, float)):
-        return value
-    if isinstance(value, str):
-        return value
-    if isinstance(value, dict):
-        return {str(k): ("[redacted]" if fmt.mask and SECRET_NAME.search(str(k)) and v else to_plain(v, fmt, depth + 1))
-                for k, v in list(value.items())[:60]}
-    if isinstance(value, (list, tuple, set)) or type(value).__name__ in ("QuerySet", "ValuesQuerySet"):
-        return [to_plain(v, fmt, depth + 1) for v in list(value)[:30]] if depth < 4 else "[…]"
-    d = getattr(value, "__dict__", None)
-    if isinstance(d, dict) and depth < 4:
-        return {k: to_plain(v, fmt, depth + 1) if not (fmt.mask and SECRET_NAME.search(k) and v) else "[redacted]"
-                for k, v in list(d.items())[:60] if not SKIP_ATTR.match(k) and not k.startswith("_") and not callable(v)}
-    return fmt.unquote(fmt.format("value", value))
+class PlainValue(object):
+    """Watched values as JSON-safe, masked data, and the differences between two of them."""
+
+    @classmethod
+    def of(cls, value, fmt, depth=0):
+        """JSON-safe, masked copy of a watched value (dicts, lists, model objects)."""
+        if value is None or isinstance(value, (bool, int, float)):
+            return value
+        if isinstance(value, str):
+            return value
+        if isinstance(value, dict):
+            return {str(k): ("[redacted]" if fmt.mask and SECRET_NAME.search(str(k)) and v else cls.of(v, fmt, depth + 1))
+                    for k, v in list(value.items())[:60]}
+        if isinstance(value, (list, tuple, set)) or type(value).__name__ in ("QuerySet", "ValuesQuerySet"):
+            return [cls.of(v, fmt, depth + 1) for v in list(value)[:30]] if depth < 4 else "[…]"
+        d = getattr(value, "__dict__", None)
+        if isinstance(d, dict) and depth < 4:
+            return {k: cls.of(v, fmt, depth + 1) if not (fmt.mask and SECRET_NAME.search(k) and v) else "[redacted]"
+                    for k, v in list(d.items())[:60] if not SKIP_ATTR.match(k) and not k.startswith("_") and not callable(v)}
+        return fmt.unquote(fmt.format("value", value))
+
+    @classmethod
+    def diff(cls, before, after, prefix=""):
+        """[{path, before, after}] between two plain values (dicts compared key by key)."""
+        if isinstance(before, dict) and isinstance(after, dict):
+            out = []
+            for k in list(before) + [k for k in after if k not in before]:
+                out.extend(cls.diff(before.get(k), after.get(k), prefix + str(k) + "."))
+            return out
+        if isinstance(before, list) and isinstance(after, list) and len(before) == len(after):
+            out = []
+            for i, (b, a) in enumerate(zip(before, after)):
+                out.extend(cls.diff(b, a, "%s%d." % (prefix, i)))
+            return out
+        return [] if before == after else [{"path": prefix.rstrip(".") or "value", "before": before, "after": after}]
 
 
 class Sandbox(object):
@@ -421,7 +441,7 @@ class Sandbox(object):
         out = {}
         for k, fn in self.watch.items():
             try:
-                out[k] = to_plain(self._quiet(fn), self.rec.fmt)
+                out[k] = PlainValue.of(self._quiet(fn), self.rec.fmt)
             except Exception as e:      # noqa - a broken watch must not stop the scenario
                 out[k] = "<watch failed: %s: %s>" % (type(e).__name__, e)
         return out
@@ -449,7 +469,7 @@ class Sandbox(object):
         after = self._snapshot()       # still inside the transaction: shows what the scenario wrote
         for k in self.watch:
             b, a = self.before.get(k), after.get(k)
-            self.result["watch"].append({"name": k, "before": b, "after": a, "changes": _diff(b, a)})
+            self.result["watch"].append({"name": k, "before": b, "after": a, "changes": PlainValue.diff(b, a)})
         self._collect_django_mail()
         r = self.rollback
         if r == "django" and self._django_atomic is not None:
@@ -476,21 +496,6 @@ class Sandbox(object):
                 self.result["emails"].append({"subject": m.subject, "to": len(m.to), "from_app": True})
         except Exception:       # noqa
             pass
-
-
-def _diff(before, after, prefix=""):
-    """[{path, before, after}] between two plain values (dicts compared key by key)."""
-    if isinstance(before, dict) and isinstance(after, dict):
-        out = []
-        for k in list(before) + [k for k in after if k not in before]:
-            out.extend(_diff(before.get(k), after.get(k), prefix + str(k) + "."))
-        return out
-    if isinstance(before, list) and isinstance(after, list) and len(before) == len(after):
-        out = []
-        for i, (b, a) in enumerate(zip(before, after)):
-            out.extend(_diff(b, a, "%s%d." % (prefix, i)))
-        return out
-    return [] if before == after else [{"path": prefix.rstrip(".") or "value", "before": before, "after": after}]
 
 
 class TraceApi(object):

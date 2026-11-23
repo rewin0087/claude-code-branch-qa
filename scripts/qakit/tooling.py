@@ -3,6 +3,7 @@
 TestRunnerFinder   how to run one test file under the test environment (rspec, pytest, jest, ...)
 E2EToolFinder      Playwright / Cypress / Capybara system tests / Selenium / Python Playwright
 DevServerFinder    how the app starts locally, and which local ports already answer
+ToolingSurvey      all of the above + stack/frameworks + database config, as tooling.json
 Nothing is executed except a TCP connect to localhost ports and `import` probes.
 """
 import json
@@ -11,6 +12,9 @@ import re
 import shutil
 import socket
 import subprocess
+
+from .dbconfig import DbConfigReader
+from .stacks import StackDetector
 
 SCRIPTS_DIR = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 COMMON_PORTS = (3000, 3001, 4000, 4200, 5000, 5173, 8000, 8080, 8888, 9000)
@@ -174,3 +178,26 @@ class DevServerFinder(object):
             finally:
                 s.close()
         return up
+
+
+class ToolingSurvey(object):
+    BROWSER_TOOLS = ("playwright", "cypress", "capybara", "selenium")
+
+    def __init__(self, repo, files):
+        self.repo, self.files = repo, files
+
+    def collect(self):
+        stack, frameworks = StackDetector(self.repo, self.files).detect()
+        if not stack:
+            stack = StackDetector.from_extensions(self.files)
+        runners = TestRunnerFinder(self.repo, self.files, stack, frameworks)
+        servers = DevServerFinder(self.repo, self.files, frameworks)
+        return {"stack": stack, "frameworks": frameworks, "test_runners": runners.runners(), "tracers": runners.tracers(),
+                "e2e": E2EToolFinder(self.repo, self.files, frameworks).find(), "dev_servers": servers.commands(),
+                "listening": servers.listening(), "django_settings": runners.django_settings(),
+                "database": DbConfigReader(self.repo, self.files).read()}
+
+    @classmethod
+    def has_browser_tooling(cls, tooling):
+        return any(t["kind"] == "project" and t["tool"] in cls.BROWSER_TOOLS or t["tool"] == "ui_check.py" and t["available"]
+                   for t in tooling["e2e"])
